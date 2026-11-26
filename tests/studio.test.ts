@@ -78,7 +78,7 @@ it("guesses types from labels", () => {
   expect(guessType("Total cost (USD)")).toBe("number");
   expect(guessType("Check-in")).toBe("date");
   expect(guessType("Department")).toBe("text");
-  expect(parseLines(L("Leave Application", "Name:", "Leave type ☐ Annual ☐ Sick ☐ Casual")).fields.map((f) => f.type)).toEqual(["text", "checkbox"]);
+  expect(parseLines(L("Leave Application", "Name:", "Leave type ☐ Annual ☐ Sick ☐ Casual")).fields.map((f) => f.type)).toEqual(["text", "radio"]);
 });
 
 it("keeps the requester's own 'Requested by' field and ignores header text above the title", () => {
