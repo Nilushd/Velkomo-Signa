@@ -16,7 +16,7 @@ Form builder and approval workflow for properties. People design a form (from sc
 | **Attachments** | File fields can take one file or **several (up to 2–20)**; one click adds an "Attachments section" · PDF, images, Word, Excel, CSV · 10 MB each · shown as download links to reviewers and listed on the printout |
 | **Printable documents** | A4 print / Save-as-PDF of any request: hotel header, document number, version, **verification code and QR**, status stamp, every answer (signatures as images, attachments listed), approval record (who, decision, date, comment), content fingerprint · **blank paper version** of any form with a "scan to fill online" QR and sign-off boxes per level |
 | **Verification** | QR opens `/v/<code>`; or anyone enters the document number + verification code at `/verify` · shows hotel, form, status, approvals and the fingerprint (never the answers) · rate-limited; reference numbers alone can't be looked up |
-| **Excel / CSV import** | First row → field labels; type detected from the next 20 rows (number, date, e-mail, phone, dropdown if ≤ 10 distinct values, else text); review table before creating |
+| **Form Studio** | Drop in a **sample form** — Excel (a laid-out form or a table of column headings), a **PDF** (fillable PDFs use their real form fields; typed PDFs are read line by line), or, with AI design on, a **photo or scan** — and the system designs the digital form: title, form code, instructions, sections, fields with types (text, number, date, e-mail, phone, long text, choices from ☐ boxes, file, signature), required marks, and **approval levels suggested from the sign-off block** ("Checked by HOD", "Approved by GM"). Review it side by side with the original, edit, preview, then create; the builder opens with next steps |
 | **Publish & share** | `/f/<short-code>` link, QR code (PNG/SVG), WhatsApp share · visibility Public / All users / Assigned users · close on a date or after N submissions |
 | **Approvals** | 0–5 sequential levels per form · several approvers (users or groups) per level, picked from a searchable dropdown that only lists people with Review access · **first to act decides**, the others close as "Handled by …" · channel Email / App / Both · reminder after N days · no levels = auto-accept |
 | **E-mail approval** | Approve / Reject / View details buttons · 32-byte random token, stored as SHA-256 only, single use, 7-day expiry, bound to one approver and one level · confirm page (no change on GET, so link scanners can't approve) · comment required to reject |
@@ -27,6 +27,8 @@ Form builder and approval workflow for properties. People design a form (from sc
 ## Tech stack
 
 Next.js 15 (App Router, TypeScript) · Tailwind CSS · dnd-kit · Postgres on **Supabase** (`postgres` driver, RLS) · Resend or SMTP behind one `sendEmail()` helper · Web Push (VAPID) · SheetJS (`xlsx`) · `qrcode` · Vercel hosting + Vercel Cron.
+
+**AI design (optional).** Form Studio works without AI: rules in `lib/studio/parse.ts` read Excel and PDF samples in the browser. If `ANTHROPIC_API_KEY` is set, it can also read photos and scanned forms, and redo any design, by sending the sample to Claude (`app/actions/studio.ts`, model `claude-opus-5-5`, structured JSON output, rate-limited to 20 designs per user per hour). Nothing is sent to an AI service unless that key is set and the user clicks *Design with AI* (or uploads a photo/scan).
 
 Two deliberate simplifications versus the original plan, both easy to change later:
 
@@ -94,6 +96,7 @@ app/
   login, change-password, forgot-password, reset-password   sign-in flow
   (app)/            signed-in area with sidebar: dashboard, forms, my-forms, requests,
                     approvals, submissions, users, settings, super, notifications
+  (app)/forms/studio  Form Studio: design a form from an Excel/PDF/photo sample
   f/[code]          public / shared form page
   s/[token]         requester status page (edit & resubmit for public requesters)
   a/[token]         e-mail approval confirm page (no login)
@@ -107,6 +110,7 @@ lib/
   db.ts             Postgres + RLS tenant transactions
   auth.ts           sessions, login lockout, guards
   access.ts         per-form access rules
+  studio/           Form Studio: sample → design rules (parse.ts), PDF reader (pdf.ts)
 components/         builder, form renderer, signature pad, pickers, UI
 supabase/migrations SQL schema + RLS policies
 brand/              Velkomo Signa logo pack (SVG, PNG, favicons, social)

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import clsx from "clsx";
-import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Building2, Bell, Menu, X, LogOut } from "lucide-react";
+import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Building2, Bell, Menu, X, LogOut, Wand2 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "./ui";
 
@@ -19,6 +19,7 @@ export function Sidebar({ user, property, counts }: Props) {
   const items = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, show: true },
     { href: "/forms", label: "Forms", icon: FileStack, show: user.canBuild },
+    { href: "/forms/studio", label: "Form Studio", icon: Wand2, show: user.canBuild },
     { href: "/my-forms", label: "My Forms", icon: ClipboardList, show: true },
     { href: "/requests", label: "My Requests", icon: Send, show: true },
     { href: "/approvals", label: "My Approvals", icon: Inbox, show: true, count: counts.approvals },
@@ -28,7 +29,7 @@ export function Sidebar({ user, property, counts }: Props) {
     { href: "/settings", label: "Settings", icon: Settings, show: true },
     { href: "/super", label: "Properties", icon: Building2, show: user.isSuper },
   ].filter((i) => i.show);
-  const active = (href: string) => (href === "/" ? path === "/" : path === href || path.startsWith(href + "/"));
+  const active = (href: string) => (href === "/" ? path === "/" : path === href || (path.startsWith(href + "/") && !(href === "/forms" && path.startsWith("/forms/studio"))));
 
   const nav = (
     <>

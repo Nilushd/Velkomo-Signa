@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireBuilder, asUser } from "@/lib/auth";
 import { PageHeader, StatusBadge, Empty } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
-import { FileSpreadsheet, Plus } from "lucide-react";
+import { Wand2, Plus } from "lucide-react";
 
 export const metadata = { title: "Forms" };
 
@@ -22,10 +22,10 @@ export default async function FormsPage() {
     <>
       <PageHeader title="Forms" subtitle={u.is_admin ? "Every form in this property." : "Forms you own."}
         actions={<>
-          <Link href="/forms/import" className="btn-secondary"><FileSpreadsheet className="h-4 w-4" /> Import from Excel</Link>
-          <Link href="/forms/new" className="btn-primary"><Plus className="h-4 w-4" /> New form</Link>
+          <Link href="/forms/new" className="btn-secondary"><Plus className="h-4 w-4" /> Blank form</Link>
+          <Link href="/forms/studio" className="btn-primary"><Wand2 className="h-4 w-4" /> Design from a sample</Link>
         </>} />
-      {forms.length === 0 ? <Empty title="No forms yet">Create a form from scratch, or turn an Excel sheet into a form in one step.</Empty> :
+      {forms.length === 0 ? <Empty title="No forms yet">Open Form Studio and drop in a sample — an Excel sheet, a PDF or a photo of your paper form — or start from a blank form.</Empty> :
         <div className="card overflow-x-auto">
           <table className="table">
             <thead><tr><th>Form</th><th>Status</th><th>Visibility</th><th className="text-right">Submissions</th><th className="text-right">Pending</th><th>Levels</th><th>Updated</th><th></th></tr></thead>

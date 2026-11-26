@@ -40,19 +40,24 @@ async function editable(u: SessionUser, tx: Sql, formId: string) {
   return f;
 }
 
-export async function createForm(input: { title?: string; schema?: unknown }) {
+export async function createForm(input: { title?: string; schema?: unknown; description?: string; formCode?: string; steps?: string[]; from?: string }) {
   const u = await requireBuilder();
   const schema = z.array(fieldSchema).max(200).parse(input.schema ?? []);
   const title = (input.title || "Untitled form").slice(0, 200);
+  const steps = z.array(z.string().trim().min(1).max(120)).max(5).parse(input.steps ?? []);
   const id = await asUser(u, async (tx) => {
     const [f] = await tx<{ id: string }[]>`
-      insert into forms (property_id, owner_id, title, short_code, schema, theme)
-      values (${u.property_id}, ${u.id}, ${title}, ${shortCode()}, ${tx.json(schema as never)},
-        ${tx.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true, thankYou: "Thank you! Your request has been received." })})
+      insert into forms (property_id, owner_id, title, description, short_code, schema, theme)
+      values (${u.property_id}, ${u.id}, ${title}, ${(input.description ?? "").slice(0, 2000)}, ${shortCode()}, ${tx.json(schema as never)},
+        ${tx.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true,
+          ...(input.formCode ? { formCode: input.formCode.slice(0, 60) } : {}), thankYou: "Thank you! Your request has been received." })})
       returning id`;
+    // suggested approval levels from the sample's sign-off block; approvers are chosen next in the builder
+    for (const [i, name] of steps.entries())
+      await tx`insert into approval_steps (property_id, form_id, level, name, channel) values (${u.property_id}, ${f.id}, ${i + 1}, ${name}, 'both')`;
     return f.id;
   });
-  redirect(`/forms/${id}/edit`);
+  redirect(`/forms/${id}/edit${input.from ? `?from=${encodeURIComponent(input.from)}` : ""}`);
 }
 
 export async function saveForm(formId: string, input: { title: string; description: string; schema: unknown; theme: unknown }) {

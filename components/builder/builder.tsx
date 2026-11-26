@@ -31,7 +31,7 @@ export interface BuilderData {
 const TABS = ["Fields", "Theme", "Access", "Approvals", "Share & settings"] as const;
 type Tab = (typeof TABS)[number];
 
-export function Builder({ data }: { data: BuilderData }) {
+export function Builder({ data, fromStudio }: { data: BuilderData; fromStudio?: boolean }) {
   const [tab, setTab] = useState<Tab>("Fields");
   const [title, setTitle] = useState(data.form.title);
   const [description, setDescription] = useState(data.form.description);
@@ -76,6 +76,12 @@ export function Builder({ data }: { data: BuilderData }) {
             : dirty && <button className="btn-primary" disabled={pending} onClick={() => save()}><Send className="h-4 w-4" /> Update live form</button>}
         </div>
       </div>
+      {fromStudio && !msg && (
+        <div className="mb-4 rounded-xl bg-brand-50 px-4 py-3 text-sm text-brand-900 ring-1 ring-brand-200">
+          <b>Designed from your sample.</b> Check the fields below, then: <button className="font-semibold underline" onClick={() => setTab("Access")}>Access</button> — give people access ·{" "}
+          <button className="font-semibold underline" onClick={() => setTab("Approvals")}>Approvals</button> — {data.steps.length ? `pick approvers for the ${data.steps.length} suggested level${data.steps.length > 1 ? "s" : ""}` : "add approval levels if needed"} ·{" "}
+          <button className="font-semibold underline" onClick={() => setTab("Theme")}>Theme</button> — logo and colours · then Publish.
+        </div>)}
       {msg && <div className={clsx("mb-4 rounded-lg px-3 py-2 text-sm ring-1", msg.kind === "ok" ? "bg-emerald-50 text-emerald-800 ring-emerald-200" : "bg-red-50 text-red-700 ring-red-200")}>{msg.text}</div>}
       <div className="mb-5 flex gap-1 overflow-x-auto border-b border-ink-line">
         {TABS.map((t) => <button key={t} onClick={() => setTab(t)} className={clsx("tab whitespace-nowrap", tab === t && "tab-active")}>{t}</button>)}
