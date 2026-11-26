@@ -30,7 +30,7 @@ export default async function ActionPage({ params, searchParams }: { params: Pro
         {blocked ? <Notice title="No action needed">{blocked}</Notice> : (
           <section className="card p-4">
             <h2 className="font-semibold">Your decision — Level {ap.level}: {ap.step_name}</h2>
-            <p className="mb-3 text-sm text-ink-mute">Signed in as {ap.name} through your e-mail link.</p>
+            <p className="mb-3 text-sm text-ink-mute">Acting as {ap.name} through your personal e-mail link — no login needed.</p>
             <DecisionForm initial={pre === "reject" ? "rejected" : pre === "approve" ? "approved" : null} action={decideByToken.bind(null, token)} />
           </section>)}
         <section className="card p-4"><h2 className="mb-1 font-semibold">Answers</h2><Answers schema={detail.form.schema} data={detail.sub.data} fileQuery={`?a=${token}`} /></section>

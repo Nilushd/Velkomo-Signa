@@ -1,19 +1,22 @@
 "use client";
 import { useState, useTransition } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import clsx from "clsx";
 import { Check, X } from "lucide-react";
 import { Alert } from "./ui";
 
 type Res = { ok: true; status: string } | { ok: false; error: string };
 
-export function DecisionForm({ initial, action }: { initial: "approved" | "rejected" | null; action: (d: "approved" | "rejected", c: string) => Promise<Res> }) {
+export function DecisionForm({ initial, action, backHref }: { initial: "approved" | "rejected" | null; action: (d: "approved" | "rejected", c: string) => Promise<Res>; backHref?: string }) {
   const [decision, setDecision] = useState(initial);
   const [comment, setComment] = useState("");
   const [res, setRes] = useState<Res | null>(null);
   const [pending, start] = useTransition();
-  const router = useRouter();
-  if (res?.ok) return <Alert kind="success">{decision === "approved" ? "Approved" : "Rejected"}. {res.status === "approved" ? "The request is now fully approved." : res.status === "rejected" ? "The requester has been told and can edit and resubmit." : "It has moved to the next level."}</Alert>;
+  if (res?.ok) return (
+    <div className="space-y-3">
+      <Alert kind="success">{decision === "approved" ? "Approved" : "Rejected"}. {res.status === "approved" ? "The request is now fully approved." : res.status === "rejected" ? "The requester has been told and can edit and resubmit." : "It has moved to the next level."}</Alert>
+      {backHref && <Link href={backHref} className="btn-secondary">Back to My Approvals</Link>}
+    </div>);
   return (
     <div className="space-y-3">
       {res && !res.ok && <Alert kind="error">{res.error}</Alert>}
@@ -26,7 +29,7 @@ export function DecisionForm({ initial, action }: { initial: "approved" | "rejec
         <textarea id="cm" rows={3} className="input" value={comment} onChange={(e) => setComment(e.target.value)} placeholder={decision === "rejected" ? "Tell the requester what to change" : ""} />
       </div>
       <button className={clsx("w-full py-3", decision === "rejected" ? "btn-danger" : "btn-success")} disabled={!decision || pending || (decision === "rejected" && !comment.trim())}
-        onClick={() => start(async () => { const r = await action(decision!, comment); setRes(r); if (r.ok) router.refresh(); })}>
+        onClick={() => start(async () => { const r = await action(decision!, comment); setRes(r); })}>
         {pending ? "Saving…" : decision === "rejected" ? "Confirm rejection" : decision === "approved" ? "Confirm approval" : "Choose approve or reject"}
       </button>
     </div>
