@@ -8,7 +8,7 @@ import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "./ui";
 
 interface Props {
-  user: { name: string; username: string; isAdmin: boolean; isSuper: boolean; canBuild: boolean; reviewer: boolean };
+  user: { name: string; username: string; isAdmin: boolean; isSuper: boolean; canBuild: boolean; canStudio: boolean; reviewer: boolean };
   property: { name: string; code: string; logo: string | null };
   counts: { approvals: number; unread: number };
 }
@@ -19,7 +19,7 @@ export function Sidebar({ user, property, counts }: Props) {
   const items = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, show: true },
     { href: "/forms", label: "Forms", icon: FileStack, show: user.canBuild },
-    { href: "/forms/studio", label: "Form Studio", icon: Wand2, show: user.canBuild },
+    { href: "/forms/studio", label: "Form Studio", icon: Wand2, show: user.canStudio },
     { href: "/my-forms", label: "My Forms", icon: ClipboardList, show: true },
     { href: "/requests", label: "My Requests", icon: Send, show: true },
     { href: "/approvals", label: "My Approvals", icon: Inbox, show: true, count: counts.approvals },

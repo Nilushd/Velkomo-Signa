@@ -13,8 +13,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const admin = await requireAdmin();
   const data = await asUser(admin, async (tx) => {
-    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; active: boolean; locked_until: Date | null; must_change_password: boolean }[]>`
-      select id, username, name, email, department, is_admin, can_build_forms, active, locked_until, must_change_password from users where id = ${id}`;
+    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; can_use_studio: boolean; can_use_ai: boolean; active: boolean; locked_until: Date | null; must_change_password: boolean }[]>`
+      select id, username, name, email, department, is_admin, can_build_forms, can_use_studio, can_use_ai, active, locked_until, must_change_password from users where id = ${id}`;
     if (!u) return null;
     const forms = await tx<{ id: string; title: string; status: string; visibility: string; access: string | null; via_group: string | null }[]>`
       select f.id, f.title, f.status, f.visibility,

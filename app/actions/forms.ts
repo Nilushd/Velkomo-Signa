@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { requireBuilder, requireUser, asUser, asSystem, type SessionUser } from "@/lib/auth";
-import { formAccess, canEditForm, reviewerIds } from "@/lib/access";
+import { formAccess, canEditForm } from "@/lib/access";
 import { shortCode } from "@/lib/crypto";
 import { FIELD_TYPES, type FormRow } from "@/lib/types";
 import type { Sql } from "@/lib/db";
@@ -40,24 +40,77 @@ async function editable(u: SessionUser, tx: Sql, formId: string) {
   return f;
 }
 
-export async function createForm(input: { title?: string; schema?: unknown; description?: string; formCode?: string; steps?: string[]; from?: string }) {
+const approverSchema = z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional() }).refine((a) => !!a.userId !== !!a.groupId);
+const stepSchema = z.object({
+  name: z.string().trim().min(1, "Every level needs a name").max(120),
+  channel: z.enum(["email", "app", "both"]).default("both"),
+  reminderDays: z.number().int().min(1).max(60).nullable().default(null),
+  approvers: z.array(approverSchema).default([]),
+});
+const accessSchema = z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), access: z.enum(["general", "review"]) }));
+
+/**
+ * Replace a form's approval levels. Anyone chosen as an approver who doesn't yet have Review access
+ * to the form gets it automatically (approvers must be able to see the submissions). Returns their names.
+ */
+async function writeSteps(tx: Sql, propertyId: string, formId: string, steps: z.infer<typeof stepSchema>[]): Promise<string[]> {
+  const granted: string[] = [];
+  for (const s of steps) for (const a of s.approvers) {
+    const col = a.userId ? tx`user_id = ${a.userId}` : tx`group_id = ${a.groupId!}`;
+    const [ex] = await tx<{ access: string }[]>`select access from form_access where form_id = ${formId} and ${col}`;
+    if (ex?.access === "review") continue;
+    if (ex) await tx`update form_access set access = 'review' where form_id = ${formId} and ${col}`;
+    else await tx`insert into form_access (property_id, form_id, user_id, group_id, access) values (${propertyId}, ${formId}, ${a.userId ?? null}, ${a.groupId ?? null}, 'review')`;
+    const [n] = a.userId ? await tx<{ name: string }[]>`select name from users where id = ${a.userId}` : await tx<{ name: string }[]>`select name from groups where id = ${a.groupId!}`;
+    if (n && !granted.includes(n.name)) granted.push(n.name);
+  }
+  await tx`delete from approval_steps where form_id = ${formId}`;
+  for (const [i, s] of steps.entries()) {
+    const [st] = await tx<{ id: string }[]>`insert into approval_steps (property_id, form_id, level, name, channel, reminder_days)
+      values (${propertyId}, ${formId}, ${i + 1}, ${s.name}, ${s.channel}, ${s.reminderDays}) returning id`;
+    for (const a of s.approvers)
+      await tx`insert into approval_step_approvers (property_id, step_id, user_id, group_id) values (${propertyId}, ${st.id}, ${a.userId ?? null}, ${a.groupId ?? null})`;
+  }
+  return granted;
+}
+
+export interface NewFormInput {
+  title?: string; schema?: unknown; description?: string; formCode?: string;
+  /** level names, or full levels with approvers */
+  steps?: (string | { name: string; channel?: "email" | "app" | "both"; reminderDays?: number | null; approvers?: { userId?: string; groupId?: string }[] })[];
+  visibility?: "public" | "all_users" | "assigned";
+  access?: AccessEntry[];
+  publish?: boolean;
+  from?: string;
+}
+
+export async function createForm(input: NewFormInput) {
   const u = await requireBuilder();
   const schema = z.array(fieldSchema).max(200).parse(input.schema ?? []);
   const title = (input.title || "Untitled form").slice(0, 200);
-  const steps = z.array(z.string().trim().min(1).max(120)).max(5).parse(input.steps ?? []);
+  const steps = z.array(stepSchema).max(5).parse((input.steps ?? []).map((s) => (typeof s === "string" ? { name: s } : s)));
+  const access = accessSchema.parse(input.access ?? []);
+  const visibility = z.enum(["public", "all_users", "assigned"]).parse(input.visibility ?? "assigned");
+  const publish = !!input.publish && schema.length > 0 && steps.every((s) => s.approvers.length > 0);
   const id = await asUser(u, async (tx) => {
     const [f] = await tx<{ id: string }[]>`
-      insert into forms (property_id, owner_id, title, description, short_code, schema, theme)
+      insert into forms (property_id, owner_id, title, description, short_code, schema, theme, visibility, status)
       values (${u.property_id}, ${u.id}, ${title}, ${(input.description ?? "").slice(0, 2000)}, ${shortCode()}, ${tx.json(schema as never)},
         ${tx.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true,
-          ...(input.formCode ? { formCode: input.formCode.slice(0, 60) } : {}), thankYou: "Thank you! Your request has been received." })})
+          ...(input.formCode ? { formCode: input.formCode.slice(0, 60) } : {}), thankYou: "Thank you! Your request has been received." })},
+        ${visibility}, ${publish ? "published" : "draft"})
       returning id`;
-    // suggested approval levels from the sample's sign-off block; approvers are chosen next in the builder
-    for (const [i, name] of steps.entries())
-      await tx`insert into approval_steps (property_id, form_id, level, name, channel) values (${u.property_id}, ${f.id}, ${i + 1}, ${name}, 'both')`;
+    for (const e of access) {
+      if (!!e.userId === !!e.groupId) continue;
+      await tx`insert into form_access (property_id, form_id, user_id, group_id, access) values (${u.property_id}, ${f.id}, ${e.userId ?? null}, ${e.groupId ?? null}, ${e.access}) on conflict do nothing`;
+    }
+    await writeSteps(tx, u.property_id, f.id, steps);
     return f.id;
   });
-  redirect(`/forms/${id}/edit${input.from ? `?from=${encodeURIComponent(input.from)}` : ""}`);
+  const qs = new URLSearchParams();
+  if (input.from) qs.set("from", input.from);
+  if (publish) qs.set("share", "1");
+  redirect(`/forms/${id}/edit${qs.size ? `?${qs}` : ""}`);
 }
 
 export async function saveForm(formId: string, input: { title: string; description: string; schema: unknown; theme: unknown }) {
@@ -154,35 +207,16 @@ export interface StepInput { name: string; channel: "email" | "app" | "both"; re
 
 export async function saveApprovals(formId: string, steps: StepInput[]) {
   const u = await requireUser();
-  const parsed = z.array(z.object({
-    name: z.string().min(1, "Every level needs a name").max(120),
-    channel: z.enum(["email", "app", "both"]),
-    reminderDays: z.number().int().min(1).max(60).nullable(),
-    approvers: z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional() })),
-  })).max(5, "At most 5 levels").safeParse(steps);
+  const parsed = z.array(stepSchema).max(5, "At most 5 levels").safeParse(steps);
   if (!parsed.success) return { error: parsed.error.issues[0].message };
-  const res = await asUser(u, async (tx) => {
+  const empty = parsed.data.findIndex((s) => s.approvers.length === 0);
+  if (empty >= 0) return { error: `Level ${empty + 1} needs at least one approver.` };
+  const granted = await asUser(u, async (tx) => {
     await editable(u, tx, formId);
-    const reviewers = await reviewerIds(tx, formId);
-    const reviewGroups = new Set((await tx<{ group_id: string }[]>`select group_id from form_access where form_id = ${formId} and access = 'review' and group_id is not null`).map((r) => r.group_id));
-    for (const [i, s] of parsed.data.entries()) {
-      if (s.approvers.length === 0) return { error: `Level ${i + 1} needs at least one approver.` };
-      for (const a of s.approvers) {
-        if (a.userId && !reviewers.has(a.userId)) return { error: `Level ${i + 1}: an approver doesn't have Review access to this form.` };
-        if (a.groupId && !reviewGroups.has(a.groupId)) return { error: `Level ${i + 1}: a group doesn't have Review access to this form.` };
-      }
-    }
-    await tx`delete from approval_steps where form_id = ${formId}`;
-    for (const [i, s] of parsed.data.entries()) {
-      const [st] = await tx<{ id: string }[]>`insert into approval_steps (property_id, form_id, level, name, channel, reminder_days)
-        values (${u.property_id}, ${formId}, ${i + 1}, ${s.name}, ${s.channel}, ${s.reminderDays}) returning id`;
-      for (const a of s.approvers)
-        await tx`insert into approval_step_approvers (property_id, step_id, user_id, group_id) values (${u.property_id}, ${st.id}, ${a.userId ?? null}, ${a.groupId ?? null})`;
-    }
-    return { ok: true };
+    return writeSteps(tx, u.property_id, formId, parsed.data);
   });
   revalidatePath(`/forms/${formId}/edit`);
-  return res;
+  return { ok: true, granted };
 }
 
 export async function deleteForm(formId: string) {

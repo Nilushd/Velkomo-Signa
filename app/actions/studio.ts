@@ -1,7 +1,7 @@
 "use server";
 import Anthropic from "@anthropic-ai/sdk";
 import { z } from "zod";
-import { requireBuilder } from "@/lib/auth";
+import { requireStudio, canAi } from "@/lib/auth";
 import { rateLimit } from "@/lib/ratelimit";
 import { FIELD_TYPES, type Field } from "@/lib/types";
 import type { StudioDraft } from "@/lib/studio/parse";
@@ -82,8 +82,9 @@ function toDraft(o: z.infer<typeof Out>): StudioDraft {
  * Design a form from a sample with Claude. Input is the file as base64 (PDF or image) or, for Excel, the sheet as CSV text.
  */
 export async function aiDesign(input: { name: string; mime: string; base64?: string; text?: string }): Promise<{ draft: StudioDraft } | { error: string }> {
-  const u = await requireBuilder();
+  const u = await requireStudio();
   if (!process.env.ANTHROPIC_API_KEY) return { error: "AI design is not set up. Add ANTHROPIC_API_KEY to the server settings." };
+  if (!canAi(u)) return { error: "AI design isn't switched on for your account. Ask your admin." };
   if (!(await rateLimit(`ai-design:${u.id}`, 20, 3600))) return { error: "You've used AI design a lot in the last hour. Please try again later." };
   if (input.base64 && input.base64.length > 14_000_000) return { error: "That file is too large for AI design (max 10 MB)." };
 

@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin, asUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
-import { UserPlus, Users } from "lucide-react";
+import { UserPlus, Users, ToggleRight } from "lucide-react";
 
 export const metadata = { title: "Users & Groups" };
 
@@ -18,7 +18,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Users & Groups" subtitle={`${users.length} users in ${admin.property_name}`}
-        actions={<><Link href="/users/groups" className="btn-secondary"><Users className="h-4 w-4" /> Groups</Link><Link href="/users/new" className="btn-primary"><UserPlus className="h-4 w-4" /> Add user</Link></>} />
+        actions={<><Link href="/users/access" className="btn-secondary"><ToggleRight className="h-4 w-4" /> Feature access</Link><Link href="/users/groups" className="btn-secondary"><Users className="h-4 w-4" /> Groups</Link><Link href="/users/new" className="btn-primary"><UserPlus className="h-4 w-4" /> Add user</Link></>} />
       <form className="mb-4"><input name="q" defaultValue={q ?? ""} className="input max-w-sm" placeholder="Search name, username, department…" aria-label="Search users" /></form>
       <div className="card overflow-x-auto">
         <table className="table">

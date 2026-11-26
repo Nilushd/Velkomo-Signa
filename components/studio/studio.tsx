@@ -2,11 +2,13 @@
 import { useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import clsx from "clsx";
-import { FileSpreadsheet, FileText, Image as ImageIcon, Sparkles, Upload, Wand2, ArrowUp, ArrowDown, Trash2, Plus, RotateCcw, Heading } from "lucide-react";
+import { FileSpreadsheet, FileText, Image as ImageIcon, Sparkles, Upload, Wand2, ArrowUp, ArrowDown, Trash2, Plus, RotateCcw, Heading, Send, Save } from "lucide-react";
 import { parseLines, rowsToLines, looksLikeTable, type StudioDraft } from "@/lib/studio/parse";
 import { fieldsFromRows } from "@/lib/detect";
 import { FIELD_TYPES, CHOICE_TYPES, type Field, type FieldType } from "@/lib/types";
-import { createForm } from "@/app/actions/forms";
+import { createForm, type StepInput, type AccessEntry } from "@/app/actions/forms";
+import { LevelsEditor, approverOptions, stepProblem } from "../builder/approvals-tab";
+import { Picker } from "../picker";
 import { aiDesign } from "@/app/actions/studio";
 import { FormRenderer } from "../form-renderer";
 import { Alert } from "../ui";
@@ -27,7 +29,12 @@ async function toBase64(file: File) {
   return btoa(s);
 }
 
-export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: boolean; propertyName: string; propertyLogo: string | null }) {
+interface Person { id: string; name: string; username: string; department: string | null; email: string | null }
+interface Group { id: string; name: string; members: number }
+const toLevels = (names: string[]): StepInput[] => names.map((name) => ({ name, channel: "both", reminderDays: null, approvers: [] }));
+
+export function Studio({ aiEnabled, aiConfigured, propertyName, propertyLogo, users, groups }:
+  { aiEnabled: boolean; aiConfigured: boolean; propertyName: string; propertyLogo: string | null; users: Person[]; groups: Group[] }) {
   const [sample, setSample] = useState<Sample | null>(null);
   const [draft, setDraft] = useState<StudioDraft | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -35,13 +42,18 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
   const [excelMode, setExcelMode] = useState<"table" | "form">("form");
   const [view, setView] = useState<"original" | "preview">("original");
   const [creating, start] = useTransition();
+  const [levels, setLevels] = useState<StepInput[]>([]);
+  const [visibility, setVisibility] = useState<"assigned" | "all_users" | "public">("assigned");
+  const [fillers, setFillers] = useState<string[]>([]);
+  // every new design (rules or AI) brings its own suggested levels
+  const setDraftAndLevels = (d: StudioDraft | null) => { setDraft(d); setLevels(toLevels(d?.steps ?? [])); };
   const input = useRef<HTMLInputElement>(null);
 
   async function runAi(s: Sample) {
     setBusy("The AI is reading your form…"); setError(null);
     try {
       const r = await aiDesign(s.kind === "excel" ? { name: s.name, mime: s.mime, text: s.csv } : { name: s.name, mime: s.mime, base64: await toBase64(s.file) });
-      if ("error" in r) setError(r.error); else { setDraft(r.draft); setView("preview"); }
+      if ("error" in r) setError(r.error); else { setDraftAndLevels(r.draft); setView("preview"); }
     } catch { setError("AI design failed. Please try again."); }
     finally { setBusy(null); }
   }
@@ -49,13 +61,13 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
   function designExcel(s: Sample, mode: "table" | "form", rows = s.rows!) {
     if (mode === "table") {
       const fields = fieldsFromRows(rows.filter((r) => r.some((c) => String(c ?? "").trim())));
-      setDraft({ title: s.name.replace(/\.(xlsx|xls|csv)$/i, "").replace(/[_-]+/g, " "), description: "", formCode: "", fields, steps: [],
+      setDraftAndLevels({ title: s.name.replace(/\.(xlsx|xls|csv)$/i, "").replace(/[_-]+/g, " "), description: "", formCode: "", fields, steps: [],
         notes: [`Read the first row as ${fields.length} column headings; types guessed from the rows below.`], source: "excel-table" });
-    } else setDraft(parseLines(rowsToLines(rows), "excel-form"));
+    } else setDraftAndLevels(parseLines(rowsToLines(rows), "excel-form"));
   }
 
   async function onFile(file: File) {
-    setError(null); setDraft(null); setView("original");
+    setError(null); setDraftAndLevels(null); setView("original");
     if (file.size > 10 * 1024 * 1024) { setError("Please use a file under 10 MB."); return; }
     const ext = (file.name.split(".").pop() ?? "").toLowerCase();
     const kind: Kind | null = ext === "pdf" ? "pdf" : ["xlsx", "xls", "csv"].includes(ext) ? "excel" : ["png", "jpg", "jpeg", "webp"].includes(ext) ? "image" : null;
@@ -87,14 +99,14 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
           const d = parseLines(r.lines, r.widgetCount >= 2 ? "pdf-fields" : "pdf-text");
           if (r.widgetCount >= 2) d.notes.unshift(`Used the PDF's ${r.widgetCount} fillable form fields.`);
           if (r.pageCount > 10) d.notes.push(`Only the first 10 of ${r.pageCount} pages were read.`);
-          setDraft(d);
+          setDraftAndLevels(d);
         }
       } else {
         const url = URL.createObjectURL(file);
         const s: Sample = { name: file.name, kind, mime, file, previews: [url] };
         setSample(s);
         if (aiEnabled) { setBusy(null); await runAi(s); return; }
-        setError("Photos and scans need AI design, which isn't set up on this server (ANTHROPIC_API_KEY). Upload the Excel or a typed PDF version instead.");
+        setError(aiConfigured ? "Photos and scans need AI design, which isn't switched on for your account. Ask your admin, or upload the Excel or a typed PDF version." : "Photos and scans need AI design, which isn't set up on this server (ANTHROPIC_API_KEY). Upload the Excel or a typed PDF version instead.");
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Couldn't read that file.");
@@ -116,16 +128,21 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
   const upd = (i: number, p: Partial<Field>) => draft && setF(draft.fields.map((f, j) => (j === i ? { ...f, ...p } : f)));
   const move = (i: number, d: number) => { if (!draft) return; const a = [...draft.fields]; [a[i], a[i + d]] = [a[i + d], a[i]]; setF(a); };
 
-  function create() {
+  function create(publish: boolean) {
     if (!draft) return;
     const bad = draft.fields.find((f) => ["select", "radio"].includes(f.type) && !(f.options ?? []).filter(Boolean).length);
     if (bad) { setError(`“${bad.label}” needs options (or change its type).`); return; }
     if (!draft.fields.some((f) => f.type !== "heading")) { setError("Add at least one field."); return; }
+    const lv = levels.filter((l) => l.name.trim() || l.approvers.length);
+    if (publish) { const p = stepProblem(lv); if (p) { setError(`To publish, ${p} Or save as a draft and finish later.`); return; } }
+    const access: AccessEntry[] = visibility === "assigned"
+      ? fillers.map((k) => (k.startsWith("u:") ? { userId: k.slice(2), access: "general" as const } : { groupId: k.slice(2), access: "general" as const })) : [];
     start(async () => {
       try {
-        await createForm({ title: draft.title, description: draft.description, formCode: draft.formCode, steps: draft.steps.filter((s) => s.trim()),
+        await createForm({ title: draft.title, description: draft.description, formCode: draft.formCode, publish, visibility, access,
+          steps: lv.map((l) => ({ ...l, name: l.name.trim() || "Approval" })),
           schema: draft.fields.map((f) => ({ ...f, label: f.label.trim() || "Untitled", options: f.options?.map((o) => o.trim()).filter(Boolean) })), from: "studio" });
-      } catch (e) { if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e; setError("Couldn't create the form. Please check the fields and try again."); }
+      } catch (e) { if ((e as { digest?: string }).digest?.startsWith("NEXT_REDIRECT")) throw e; setError("Couldn't save the form. Please check the fields and try again."); }
     });
   }
 
@@ -145,7 +162,7 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
           {[
             { icon: FileSpreadsheet, t: "Excel", d: "A laid-out form (labels with blank cells) or a table whose column headings become fields." },
             { icon: FileText, t: "PDF", d: "Fillable PDFs use their real form fields; typed PDFs are read line by line — labels, ____ blanks, ☐ boxes, sections." },
-            { icon: Sparkles, t: aiEnabled ? "AI design (on)" : "AI design (off)", d: aiEnabled ? "Reads photos and scans too, and can redo any design with AI." : "Add ANTHROPIC_API_KEY on the server to read photos and scans." },
+            { icon: Sparkles, t: aiEnabled ? "AI design (on)" : "AI design (off)", d: aiEnabled ? "Reads photos and scans too, and can redo any design with AI." : aiConfigured ? "Not switched on for your account — ask your admin (Users → Feature access)." : "Add ANTHROPIC_API_KEY on the server to read photos and scans." },
           ].map((c) => (
             <div key={c.t} className="card p-4"><c.icon className="mb-2 h-5 w-5 text-brand-600" /><p className="font-semibold">{c.t}</p><p className="mt-1 text-sm text-ink-mute">{c.d}</p></div>))}
         </div>
@@ -167,7 +184,7 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
             <select className="input w-auto py-1.5" value={excelMode} onChange={(e) => { const m = e.target.value as "table" | "form"; setExcelMode(m); designExcel(sample, m); }} aria-label="Read the sheet as">
               <option value="form">Read as a laid-out form</option><option value="table">Read column headings as fields</option></select>)}
           {aiEnabled && <button className="btn-secondary" disabled={!!busy} onClick={() => runAi(sample)}><Sparkles className="h-4 w-4 text-brand-600" /> {draft?.source === "ai" ? "Redo with AI" : "Design with AI"}</button>}
-          <button className="btn-ghost" onClick={() => { setSample(null); setDraft(null); setError(null); }}><RotateCcw className="h-4 w-4" /> Another file</button>
+          <button className="btn-ghost" onClick={() => { setSample(null); setDraftAndLevels(null); setError(null); }}><RotateCcw className="h-4 w-4" /> Another file</button>
         </div>
       </div>
       {busy && <Alert kind="info">{busy}</Alert>}
@@ -240,21 +257,31 @@ export function Studio({ aiEnabled, propertyName, propertyLogo }: { aiEnabled: b
               </ul>
             </div>
 
-            <div className="card p-4">
-              <p className="font-semibold">Approval levels</p>
-              <p className="mb-3 text-sm text-ink-mute">{draft.steps.length ? "Suggested from the sign-off part of your sample." : "None found in the sample."} You&apos;ll choose the approvers after creating the form.</p>
-              <ol className="space-y-1.5">{draft.steps.map((s, i) => (
-                <li key={i} className="flex items-center gap-2">
-                  <span className="grid h-6 w-6 shrink-0 place-items-center rounded-full bg-brand-600 text-xs font-bold text-white">{i + 1}</span>
-                  <input className="input py-1.5" value={s} onChange={(e) => setDraft({ ...draft, steps: draft.steps.map((x, j) => (j === i ? e.target.value : x)) })} aria-label={`Level ${i + 1} name`} />
-                  <button className="p-1 text-ink-mute hover:text-red-600" onClick={() => setDraft({ ...draft, steps: draft.steps.filter((_, j) => j !== i) })} aria-label="Remove level"><Trash2 className="h-4 w-4" /></button>
-                </li>))}</ol>
-              {draft.steps.length < 5 && <button className="btn-ghost btn-sm mt-2" onClick={() => setDraft({ ...draft, steps: [...draft.steps, `Level ${draft.steps.length + 1}`] })}><Plus className="h-3.5 w-3.5" /> Add level</button>}
+            <div className="card space-y-3 p-4">
+              <p className="font-semibold">Who can fill it in?</p>
+              <select className="input" value={visibility} onChange={(e) => setVisibility(e.target.value as typeof visibility)} aria-label="Who can fill it in">
+                <option value="assigned">Only the people and groups I choose</option>
+                <option value="all_users">All users of {propertyName}</option>
+                <option value="public">Anyone with the link or QR code (no login)</option>
+              </select>
+              {visibility === "assigned" && (
+                <Picker selected={fillers} onChange={setFillers} placeholder="Add people or groups who can submit it…"
+                  options={[...groups.map((g) => ({ key: `g:${g.id}`, label: g.name, sub: `Group · ${g.members} members`, kind: "group" as const })),
+                    ...users.map((u) => ({ key: `u:${u.id}`, label: u.name, sub: [u.username, u.department].filter(Boolean).join(" · "), kind: "user" as const }))]} />)}
             </div>
 
-            <div className="flex flex-wrap items-center gap-3">
-              <button className="btn-primary px-5 py-2.5" disabled={creating} onClick={create}><Wand2 className="h-4 w-4" /> {creating ? "Creating…" : "Create form from this design"}</button>
-              <span className="text-xs text-ink-mute">It opens in the builder as a draft, with your hotel logo in the header.</span>
+            <div className="space-y-3">
+              <div>
+                <p className="font-semibold">Approval levels &amp; approvers</p>
+                <p className="text-sm text-ink-mute">{draft.steps.length ? "Suggested from the sign-off part of your sample — pick who approves each level." : "None found in the sample — add levels if the form needs approval."} Approvers get Review access automatically.</p>
+              </div>
+              <LevelsEditor steps={levels} setSteps={setLevels} options={approverOptions(users, groups, [])} />
+            </div>
+
+            <div className="card flex flex-wrap items-center gap-3 p-4">
+              <button className="btn-primary px-5 py-2.5" disabled={creating} onClick={() => create(true)}><Send className="h-4 w-4" /> {creating ? "Saving…" : "Save & publish"}</button>
+              <button className="btn-secondary py-2.5" disabled={creating} onClick={() => create(false)}><Save className="h-4 w-4" /> Save as draft</button>
+              <p className="w-full text-xs text-ink-mute">Saved to your Forms list — you can open and change it any time; edits save automatically. Publishing opens the share options (link, QR code, WhatsApp).</p>
             </div>
           </section>
         ) : !busy && (

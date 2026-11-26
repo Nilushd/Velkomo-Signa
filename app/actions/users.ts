@@ -24,9 +24,9 @@ export async function createUser(_: FormState, fd: FormData): Promise<FormState>
   let id: string;
   try {
     id = await asUser(admin, async (tx) => {
-      const [u] = await tx<{ id: string }[]>`insert into users (property_id, username, name, email, department, password_hash, is_admin, can_build_forms, must_change_password)
+      const [u] = await tx<{ id: string }[]>`insert into users (property_id, username, name, email, department, password_hash, is_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
         values (${admin.property_id}, ${p.data.username}, ${p.data.name}, ${p.data.email || null}, ${p.data.department || null}, ${await hashPassword(pw)},
-          ${fd.get("is_admin") === "on"}, ${fd.get("can_build_forms") === "on"}, true) returning id`;
+          ${fd.get("is_admin") === "on"}, ${fd.get("can_build_forms") === "on"}, ${fd.get("can_use_studio") === "on"}, ${fd.get("can_use_ai") === "on"}, true) returning id`;
       return u.id;
     });
   } catch (e) {
@@ -44,13 +44,30 @@ export async function updateUser(userId: string, _: FormState, fd: FormData): Pr
   if (userId === admin.id && !isAdmin) return { error: "You can't remove your own admin rights." };
   try {
     await asUser(admin, (tx) => tx`update users set username = ${p.data.username}, name = ${p.data.name}, email = ${p.data.email || null},
-      department = ${p.data.department || null}, is_admin = ${isAdmin}, can_build_forms = ${fd.get("can_build_forms") === "on"} where id = ${userId}`);
+      department = ${p.data.department || null}, is_admin = ${isAdmin}, can_build_forms = ${fd.get("can_build_forms") === "on"},
+      can_use_studio = ${fd.get("can_use_studio") === "on"}, can_use_ai = ${fd.get("can_use_ai") === "on"} where id = ${userId}`);
   } catch (e) {
     if (String(e).includes("users_username_uq")) return { error: "That username is already used in this property." };
     throw e;
   }
   revalidatePath(`/users/${userId}`);
   return { ok: "Saved." };
+}
+
+const FEATURES = { build: "can_build_forms", studio: "can_use_studio", ai: "can_use_ai" } as const;
+export type Feature = keyof typeof FEATURES;
+
+/** Switch one feature on/off for one user (Feature access table). Turning off the designer also turns off Studio and AI. */
+export async function setFeature(userId: string, feature: Feature, on: boolean) {
+  const admin = await requireAdmin();
+  await asUser(admin, async (tx) => {
+    if (feature === "build") await tx`update users set can_build_forms = ${on}, can_use_studio = can_use_studio and ${on}, can_use_ai = can_use_ai and ${on} where id = ${userId}`;
+    else if (feature === "studio") await tx`update users set can_use_studio = ${on}, can_use_ai = can_use_ai and ${on}, can_build_forms = can_build_forms or ${on} where id = ${userId}`;
+    else await tx`update users set can_use_ai = ${on}, can_use_studio = can_use_studio or ${on}, can_build_forms = can_build_forms or ${on} where id = ${userId}`;
+  });
+  revalidatePath("/users/access");
+  revalidatePath(`/users/${userId}`);
+  return { ok: true };
 }
 
 export async function setActive(userId: string, active: boolean) {

@@ -1,15 +1,16 @@
 import Link from "next/link";
-import { requireBuilder, asUser } from "@/lib/auth";
-import { PageHeader, StatusBadge, Empty } from "@/components/ui";
+import { requireBuilder, asUser, canStudio } from "@/lib/auth";
+import { PageHeader, StatusBadge, Empty, Alert } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
-import { Wand2, Plus } from "lucide-react";
+import { Wand2, Plus, Pencil, Share2 } from "lucide-react";
 
 export const metadata = { title: "Forms" };
 
 const VIS: Record<string, string> = { public: "Public", all_users: "All users", assigned: "Assigned users" };
 
-export default async function FormsPage() {
+export default async function FormsPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const u = await requireBuilder();
+  const { denied } = await searchParams;
   const forms = await asUser(u, (tx) => tx<{ id: string; title: string; status: string; visibility: string; short_code: string; updated_at: Date; owner: string | null; total: number; pending: number; levels: number }[]>`
     select f.id, f.title, f.status, f.visibility, f.short_code, f.updated_at, o.name as owner,
       (select count(*)::int from submissions s where s.form_id = f.id) as total,
@@ -23,8 +24,9 @@ export default async function FormsPage() {
       <PageHeader title="Forms" subtitle={u.is_admin ? "Every form in this property." : "Forms you own."}
         actions={<>
           <Link href="/forms/new" className="btn-secondary"><Plus className="h-4 w-4" /> Blank form</Link>
-          <Link href="/forms/studio" className="btn-primary"><Wand2 className="h-4 w-4" /> Design from a sample</Link>
+          {canStudio(u) && <Link href="/forms/studio" className="btn-primary"><Wand2 className="h-4 w-4" /> Design from a sample</Link>}
         </>} />
+      {denied === "studio" && <div className="mb-4"><Alert kind="warn">Form Studio isn&apos;t switched on for your account. Ask your admin (Users &amp; Groups → Feature access).</Alert></div>}
       {forms.length === 0 ? <Empty title="No forms yet">Open Form Studio and drop in a sample — an Excel sheet, a PDF or a photo of your paper form — or start from a blank form.</Empty> :
         <div className="card overflow-x-auto">
           <table className="table">
@@ -38,7 +40,13 @@ export default async function FormsPage() {
                 <td className="text-right tabular-nums">{f.pending}</td>
                 <td className="text-ink-soft">{f.levels === 0 ? "Auto-accept" : f.levels}</td>
                 <td className="whitespace-nowrap text-ink-mute">{fmtDate(f.updated_at, false)}</td>
-                <td className="whitespace-nowrap text-right"><Link href={`/submissions?form=${f.id}`} className="text-sm text-brand-700 hover:underline">Submissions</Link></td>
+                <td className="whitespace-nowrap text-right">
+                  <div className="flex justify-end gap-1">
+                    <Link href={`/forms/${f.id}/edit`} className="btn-ghost btn-sm"><Pencil className="h-3.5 w-3.5" /> Edit</Link>
+                    <Link href={`/forms/${f.id}/edit?share=1`} className="btn-ghost btn-sm"><Share2 className="h-3.5 w-3.5" /> Share</Link>
+                    <Link href={`/submissions?form=${f.id}`} className="btn-ghost btn-sm">Submissions</Link>
+                  </div>
+                </td>
               </tr>))}</tbody>
           </table>
         </div>}

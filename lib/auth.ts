@@ -21,6 +21,8 @@ export interface SessionUser {
   is_admin: boolean;
   is_super_admin: boolean;
   can_build_forms: boolean;
+  can_use_studio: boolean;
+  can_use_ai: boolean;
   must_change_password: boolean;
   property_code: string;
   property_name: string;
@@ -90,7 +92,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   if (!token) return null;
   const [u] = await rootSql()<SessionUser[]>`
     select u.id, u.property_id, u.username, u.name, u.email, u.department, u.is_admin, u.is_super_admin,
-           u.can_build_forms, u.must_change_password,
+           u.can_build_forms, u.can_use_studio, u.can_use_ai, u.must_change_password,
            p.property_code, p.name as property_name, p.logo_file_id as property_logo
     from sessions s join users u on u.id = s.user_id join properties p on p.id = u.property_id
     where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active`;
@@ -108,6 +110,17 @@ export async function requireUser(opts: { allowMustChange?: boolean } = {}): Pro
 export async function requireAdmin() {
   const u = await requireUser();
   if (!u.is_admin) redirect("/");
+  return u;
+}
+
+/** Feature access: admins always; others when the admin switched it on for them. */
+export const canBuild = (u: SessionUser) => u.is_admin || u.can_build_forms;
+export const canStudio = (u: SessionUser) => u.is_admin || (u.can_build_forms && u.can_use_studio);
+export const canAi = (u: SessionUser) => !!process.env.ANTHROPIC_API_KEY && (u.is_admin || (canStudio(u) && u.can_use_ai));
+
+export async function requireStudio() {
+  const u = await requireUser();
+  if (!canStudio(u)) redirect("/forms?denied=studio");
   return u;
 }
 

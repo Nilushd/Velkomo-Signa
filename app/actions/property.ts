@@ -41,8 +41,8 @@ export async function createProperty(_: FormState, fd: FormData): Promise<FormSt
   const hash = await hashPassword(p.data.adminPassword);
   await sql.begin(async (tx) => {
     const [prop] = await tx`insert into properties (property_code, name) values (${p.data.code.toUpperCase()}, ${p.data.name}) returning id`;
-    await tx`insert into users (property_id, username, name, email, password_hash, is_admin, can_build_forms, must_change_password)
-      values (${prop.id}, ${p.data.adminUsername}, ${p.data.adminName}, ${p.data.adminEmail || null}, ${hash}, true, true, true)`;
+    await tx`insert into users (property_id, username, name, email, password_hash, is_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
+      values (${prop.id}, ${p.data.adminUsername}, ${p.data.adminName}, ${p.data.adminEmail || null}, ${hash}, true, true, true, true, true)`;
   });
   revalidatePath("/super");
   return { ok: `Property ${p.data.code.toUpperCase()} created. ${p.data.adminName} can sign in with the temporary password.` };

@@ -14,7 +14,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
   return (
     <div className="min-h-screen lg:flex">
       <Sidebar
-        user={{ name: u.name, username: u.username, isAdmin: u.is_admin, isSuper: u.is_super_admin, canBuild: u.can_build_forms || u.is_admin, reviewer: counts.reviewer }}
+        user={{ name: u.name, username: u.username, isAdmin: u.is_admin, isSuper: u.is_super_admin, canBuild: u.can_build_forms || u.is_admin, canStudio: u.is_admin || (u.can_build_forms && u.can_use_studio), reviewer: counts.reviewer }}
         property={{ name: u.property_name, code: u.property_code, logo: u.property_logo }}
         counts={{ approvals: counts.approvals, unread: counts.unread }}
       />

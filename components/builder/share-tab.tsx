@@ -5,7 +5,7 @@ import { saveSettings, deleteForm, duplicateForm, transferOwner } from "@/app/ac
 import { Alert } from "../ui";
 import type { BuilderData } from "./builder";
 
-export function ShareTab({ data, status, onStatus, pending }: { data: BuilderData; status: string; onStatus: (s: "draft" | "published" | "closed") => void; pending: boolean }) {
+export function ShareTab({ data, status, onStatus, pending, onShare }: { data: BuilderData; status: string; onStatus: (s: "draft" | "published" | "closed") => void; pending: boolean; onShare: () => void }) {
   const [copied, setCopied] = useState(false);
   const [closesAt, setClosesAt] = useState(data.form.closesAt);
   const [max, setMax] = useState(data.form.maxSubmissions?.toString() ?? "");
@@ -32,6 +32,8 @@ export function ShareTab({ data, status, onStatus, pending }: { data: BuilderDat
             <a href={`${qr}?format=svg&download=1`} className="btn-secondary"><Download className="h-4 w-4" /> SVG</a>
             <a href={wa} target="_blank" rel="noreferrer" className="btn-secondary">Share on WhatsApp</a>
             <a href={`/print/form/${data.form.id}`} target="_blank" rel="noreferrer" className="btn-secondary"><Printer className="h-4 w-4" /> Printable blank form</a>
+            <a href={`/print/qr/${data.form.id}`} target="_blank" rel="noreferrer" className="btn-secondary"><Printer className="h-4 w-4" /> QR poster</a>
+            <button className="btn-primary" onClick={onShare}>More sharing options</button>
           </div>
         </div>
       </div>

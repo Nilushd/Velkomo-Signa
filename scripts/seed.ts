@@ -33,9 +33,9 @@ async function main() {
     const [p] = await sql`insert into properties (property_code, name) values (${pc}, ${name}) returning id`;
     return p.id as string;
   }
-  async function user(pid: string, username: string, name: string, dept: string, extra: Partial<{ is_admin: boolean; is_super_admin: boolean; email: string; can_build_forms: boolean }> = {}) {
-    const [u] = await sql`insert into users (property_id, username, name, department, email, password_hash, is_admin, is_super_admin, can_build_forms, must_change_password)
-      values (${pid}, ${username}, ${name}, ${dept}, ${extra.email ?? null}, ${hash}, ${extra.is_admin ?? false}, ${extra.is_super_admin ?? false}, ${extra.can_build_forms ?? false}, false) returning id`;
+  async function user(pid: string, username: string, name: string, dept: string, extra: Partial<{ is_admin: boolean; is_super_admin: boolean; email: string; can_build_forms: boolean; can_use_studio: boolean }> = {}) {
+    const [u] = await sql`insert into users (property_id, username, name, department, email, password_hash, is_admin, is_super_admin, can_build_forms, can_use_studio, must_change_password)
+      values (${pid}, ${username}, ${name}, ${dept}, ${extra.email ?? null}, ${hash}, ${extra.is_admin ?? false}, ${extra.is_super_admin ?? false}, ${extra.can_build_forms ?? false}, ${extra.can_use_studio ?? false}, false) returning id`;
     return u.id as string;
   }
 
@@ -47,7 +47,7 @@ async function main() {
     if (!pid) continue;
     const lc = pc.toLowerCase();
     const admin = await user(pid, "admin", `${name} Admin`, "Management", { is_admin: true, email: `admin.${lc}@example.com` });
-    const r1 = await user(pid, "manager", "Maya Perera", "Front Office", { email: `manager.${lc}@example.com`, can_build_forms: true });
+    const r1 = await user(pid, "manager", "Maya Perera", "Front Office", { email: `manager.${lc}@example.com`, can_build_forms: true, can_use_studio: true });
     const r2 = await user(pid, "supervisor", "Sam Fernando", "Front Office", { email: `supervisor.${lc}@example.com` });
     const g1 = await user(pid, "john", "John Silva", "Housekeeping", { email: `john.${lc}@example.com` });
     const g2 = await user(pid, "nimali", "Nimali Jayasinghe", "Kitchen");
