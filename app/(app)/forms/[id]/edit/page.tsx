@@ -34,6 +34,8 @@ export default async function EditForm({ params }: { params: Promise<{ id: strin
       submissionCount: n,
       url: `${appUrl()}/f/${f.short_code}`,
       isAdmin: u.is_admin,
+      propertyName: u.property_name,
+      propertyLogo: u.property_logo,
     };
   });
   if (!data) notFound();

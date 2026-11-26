@@ -36,9 +36,10 @@ export default async function FormPage({ params }: { params: Promise<{ code: str
   if (form.status === "closed" || (form.closes_at && form.closes_at < new Date()) || (form.max_submissions && n >= form.max_submissions)) {
     return <PublicShell background={bg}><Notice title={form.title}>This form is closed and no longer accepts submissions.</Notice></PublicShell>;
   }
+  const [prop] = await rootSql()<{ name: string; logo_file_id: string | null }[]>`select name, logo_file_id from properties where id = ${form.property_id}`;
   return (
     <PublicShell background={bg}>
-      <FillForm code={code} title={form.title} description={form.description} schema={form.schema} theme={form.theme}
+      <FillForm code={code} propertyName={prop.name} propertyLogo={prop.logo_file_id} title={form.title} description={form.description} schema={form.schema} theme={form.theme}
         signedInAs={user ? user.name : null} captchaSiteKey={!user ? process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY ?? null : null}
         initial={user ? prefill(form, user) : undefined} />
     </PublicShell>

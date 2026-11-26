@@ -38,8 +38,8 @@ export function FieldsTab({ schema, setSchema, description, setDescription }: { 
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const current = schema.find((f) => f.id === sel) ?? null;
 
-  function add(type: FieldType) {
-    const f: Field = { id: newId(), type, label: type === "heading" ? "New section" : label(type), required: false };
+  function add(type: FieldType, preset?: Partial<Field>) {
+    const f: Field = { id: newId(), type, label: type === "heading" ? "New section" : label(type), required: false, ...preset };
     if (CHOICE_TYPES.includes(type)) f.options = ["Option 1", "Option 2"];
     const i = current ? schema.findIndex((x) => x.id === current.id) + 1 : schema.length;
     setSchema([...schema.slice(0, i), f, ...schema.slice(i)]);
@@ -60,6 +60,9 @@ export function FieldsTab({ schema, setSchema, description, setDescription }: { 
           {FIELD_TYPES.map((t) => { const Icon = ICONS[t.type]; return (
             <button key={t.type} onClick={() => add(t.type)} className="flex items-center gap-2 rounded-lg border border-ink-line bg-white px-3 py-2 text-left text-sm hover:border-brand-400 hover:bg-brand-50">
               <Icon className="h-4 w-4 text-brand-600" /> {t.label}</button>); })}
+          <button onClick={() => add("file", { label: "Attachments", multiple: true, maxFiles: 5, help: "Add supporting documents, e.g. quotes, invoices or photos." })}
+            className="col-span-2 flex items-center gap-2 rounded-lg border border-dashed border-brand-300 bg-brand-50/60 px-3 py-2 text-left text-sm font-medium text-brand-800 hover:bg-brand-50 lg:col-span-1">
+            <Paperclip className="h-4 w-4" /> Attachments section</button>
         </div>
       </aside>
       <section>
@@ -93,6 +96,14 @@ export function FieldsTab({ schema, setSchema, description, setDescription }: { 
                 <div><label className="label" htmlFor="fp">Placeholder</label><input id="fp" className="input" value={current.placeholder ?? ""} onChange={(e) => update({ placeholder: e.target.value })} /></div>}
             </>}
             <div><label className="label" htmlFor="fh">Help text</label><input id="fh" className="input" value={current.help ?? ""} onChange={(e) => update({ help: e.target.value })} /></div>
+            {current.type === "file" && (
+              <div className="space-y-2 rounded-lg bg-ink-wash/60 p-3">
+                <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={!!current.multiple} onChange={(e) => update({ multiple: e.target.checked, maxFiles: e.target.checked ? current.maxFiles ?? 5 : undefined })} /> Allow several files</label>
+                {current.multiple && <div><label className="label" htmlFor="fm">Maximum files</label>
+                  <select id="fm" className="input" value={current.maxFiles ?? 5} onChange={(e) => update({ maxFiles: Number(e.target.value) })}>
+                    {[2, 3, 5, 10, 20].map((n) => <option key={n} value={n}>{n}</option>)}</select></div>}
+                <p className="help">PDF, images, Word, Excel or CSV · max 10 MB each.</p>
+              </div>)}
             {CHOICE_TYPES.includes(current.type) && (
               <div><label className="label" htmlFor="fo">Options (one per line)</label>
                 <textarea id="fo" rows={6} className="input font-mono text-xs" value={(current.options ?? []).join("\n")}

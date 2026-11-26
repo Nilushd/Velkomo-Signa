@@ -16,12 +16,20 @@ const fieldSchema = z.object({
   placeholder: z.string().max(200).optional(),
   help: z.string().max(500).optional(),
   options: z.array(z.string().max(200)).max(200).optional(),
+  multiple: z.boolean().optional(),
+  maxFiles: z.number().int().min(1).max(20).optional(),
 });
 const themeSchema = z.object({
   primary: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   background: z.string().regex(/^#[0-9a-fA-F]{6}$/).optional(),
   font: z.enum(["sans", "serif", "rounded"]).optional(),
+  logoSource: z.enum(["property", "custom", "none"]).optional(),
   logoFileId: z.string().uuid().nullable().optional(),
+  logoAlign: z.enum(["left", "center", "right"]).optional(),
+  logoSize: z.enum(["s", "m", "l"]).optional(),
+  showPropertyName: z.boolean().optional(),
+  formCode: z.string().max(60).optional(),
+  printFooter: z.string().max(300).optional(),
   thankYou: z.string().max(1000).optional(),
 });
 
@@ -40,7 +48,7 @@ export async function createForm(input: { title?: string; schema?: unknown }) {
     const [f] = await tx<{ id: string }[]>`
       insert into forms (property_id, owner_id, title, short_code, schema, theme)
       values (${u.property_id}, ${u.id}, ${title}, ${shortCode()}, ${tx.json(schema as never)},
-        ${tx.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", thankYou: "Thank you! Your request has been received." })})
+        ${tx.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true, thankYou: "Thank you! Your request has been received." })})
       returning id`;
     return f.id;
   });

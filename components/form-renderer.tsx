@@ -1,7 +1,9 @@
 "use client";
 import { useState } from "react";
 import clsx from "clsx";
-import type { Field, Theme, FileRef } from "@/lib/types";
+import { headerLogo, LOGO_HEIGHT, type Field, type Theme, type FileRef } from "@/lib/types";
+import { fileRefs } from "@/lib/format";
+import { Paperclip, X } from "lucide-react";
 import { SignaturePad } from "./signature-pad";
 
 export const FONT_STACKS: Record<string, string> = {
@@ -23,9 +25,31 @@ interface Props {
   onSubmit?: (data: Record<string, unknown>) => Promise<{ error?: string; fieldErrors?: Record<string, string> } | void>;
   footer?: React.ReactNode;
   header?: React.ReactNode;
+  /** the hotel / property, for the header */
+  propertyName?: string;
+  propertyLogo?: string | null;
 }
 
-export function FormRenderer({ title, description, schema, theme, initial, submitLabel = "Submit", uploadCode, preview, onSubmit, footer, header }: Props) {
+/** Form header: logo (hotel or custom), hotel name, title, form code. Shared by the form and the builder previews. */
+export function FormHeader({ theme, title, propertyName, propertyLogo }: { theme: Theme; title: string; propertyName?: string; propertyLogo?: string | null }) {
+  const logo = headerLogo(theme, propertyLogo);
+  const align = theme.logoAlign ?? "left";
+  const box = align === "center" ? "items-center text-center" : align === "right" ? "items-end text-right" : "items-start text-left";
+  return (
+    <div className={clsx("flex flex-col gap-2", box)}>
+      {(logo || (theme.showPropertyName && propertyName)) && (
+        <div className={clsx("flex items-center gap-3", align === "right" && "flex-row-reverse")}>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          {logo && <img src={`/api/files/${logo}`} alt="" style={{ height: LOGO_HEIGHT[theme.logoSize ?? "m"] }} className="w-auto max-w-[260px] object-contain" />}
+          {theme.showPropertyName && propertyName && <span className="text-sm font-semibold uppercase tracking-wide text-ink-soft">{propertyName}</span>}
+        </div>)}
+      <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: "inherit" }}>{title}</h1>
+      {theme.formCode && <p className="font-mono text-xs text-ink-mute">{theme.formCode}</p>}
+    </div>
+  );
+}
+
+export function FormRenderer({ title, description, schema, theme, initial, submitLabel = "Submit", uploadCode, preview, onSubmit, footer, header, propertyName, propertyLogo }: Props) {
   const [data, setData] = useState<Record<string, unknown>>(initial ?? {});
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -34,16 +58,24 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
   const primary = theme.primary || "#2563EB";
   const set = (id: string, v: unknown) => { setData((d) => ({ ...d, [id]: v })); setErrors((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
-  async function upload(f: Field, file: File) {
-    if (!uploadCode) return;
-    if (file.size > 10 * 1024 * 1024) { setErrors((e) => ({ ...e, [f.id]: "Files can be at most 10 MB." })); return; }
+  async function upload(f: Field, files: File[]) {
+    if (!uploadCode || files.length === 0) return;
+    const max = f.multiple ? f.maxFiles || 5 : 1;
+    const current = f.multiple ? fileRefs(data[f.id]) : [];
+    if (current.length + files.length > max) { setErrors((e) => ({ ...e, [f.id]: `You can attach at most ${max} files.` })); return; }
+    const big = files.find((x) => x.size > 10 * 1024 * 1024);
+    if (big) { setErrors((e) => ({ ...e, [f.id]: `${big.name} is larger than 10 MB.` })); return; }
     setUploading(f.id);
     try {
-      const fd = new FormData(); fd.append("file", file); fd.append("code", uploadCode);
-      const r = await fetch("/api/upload", { method: "POST", body: fd });
-      const j = await r.json();
-      if (!r.ok) throw new Error(j.error || "Upload failed");
-      set(f.id, j as FileRef);
+      const done: FileRef[] = [];
+      for (const file of files) {
+        const fd = new FormData(); fd.append("file", file); fd.append("code", uploadCode);
+        const r = await fetch("/api/upload", { method: "POST", body: fd });
+        const j = await r.json();
+        if (!r.ok) throw new Error(`${file.name}: ${j.error || "upload failed"}`);
+        done.push(j as FileRef);
+      }
+      set(f.id, f.multiple ? [...current, ...done] : done[0]);
     } catch (e) {
       setErrors((x) => ({ ...x, [f.id]: e instanceof Error ? e.message : "Upload failed" }));
     } finally { setUploading(null); }
@@ -83,11 +115,7 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
       <div className="overflow-hidden rounded-2xl bg-white shadow-card ring-1 ring-black/5">
         <div className="h-2" style={{ background: primary }} />
         <div className="px-5 pb-2 pt-6 sm:px-8">
-          {theme.logoFileId && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`/api/files/${theme.logoFileId}`} alt="" className="mb-4 max-h-14 w-auto" />
-          )}
-          <h1 className="text-2xl font-bold text-ink" style={{ fontFamily: "inherit" }}>{title}</h1>
+          <FormHeader theme={theme} title={title} propertyName={propertyName} propertyLogo={propertyLogo} />
           {description && <p className="mt-2 whitespace-pre-line text-sm text-ink-soft">{description}</p>}
           {header}
         </div>
@@ -130,15 +158,30 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
                 ) : (
                   <label id={`fld-${f.id}`} className="flex items-center gap-2 text-sm font-medium text-ink-soft"><input type="checkbox" checked={v === true} style={{ accentColor: primary }} onChange={(e) => set(f.id, e.target.checked)} />
                     {f.label}{f.required && <span className="text-red-600"> *</span>}</label>))}
-                {f.type === "file" && (
-                  <div id={`fld-${f.id}`} className="flex flex-wrap items-center gap-3">
-                    <label className={clsx("btn-secondary cursor-pointer", (preview || uploading) && "pointer-events-none opacity-60")}>
-                      {uploading === f.id ? "Uploading…" : v ? "Replace file" : "Choose file"}
-                      <input type="file" className="sr-only" disabled={preview} accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.doc,.docx,.xls,.xlsx,.csv,.txt"
-                        onChange={(e) => e.target.files?.[0] && upload(f, e.target.files[0])} />
-                    </label>
-                    {v ? <span className="text-sm text-ink-soft">{(v as FileRef).name}</span> : <span className="text-xs text-ink-mute">PDF, image, Word or Excel · max 10 MB</span>}
-                  </div>)}
+                {f.type === "file" && (() => {
+                  const refs = fileRefs(v);
+                  const max = f.multiple ? f.maxFiles || 5 : 1;
+                  const full = f.multiple && refs.length >= max;
+                  return (
+                    <div id={`fld-${f.id}`} className="space-y-2">
+                      {refs.length > 0 && <ul className="space-y-1.5">{refs.map((r) => (
+                        <li key={r.fileId} className="flex items-center gap-2 rounded-lg border border-ink-line bg-ink-wash/50 px-3 py-2 text-sm">
+                          <Paperclip className="h-4 w-4 shrink-0 text-ink-mute" /><span className="min-w-0 flex-1 truncate">{r.name}</span>
+                          <span className="shrink-0 text-xs text-ink-mute">{Math.max(1, Math.round(r.size / 1024))} KB</span>
+                          <button type="button" onClick={() => set(f.id, f.multiple ? refs.filter((x) => x.fileId !== r.fileId) : "")} className="text-ink-mute hover:text-red-600" aria-label={`Remove ${r.name}`}><X className="h-4 w-4" /></button>
+                        </li>))}</ul>}
+                      {!full && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          <label className={clsx("btn-secondary cursor-pointer", (preview || uploading) && "pointer-events-none opacity-60")}>
+                            <Paperclip className="h-4 w-4" />
+                            {uploading === f.id ? "Uploading…" : f.multiple ? (refs.length ? "Add more files" : "Add files") : refs.length ? "Replace file" : "Choose file"}
+                            <input type="file" className="sr-only" disabled={preview} multiple={!!f.multiple} accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.doc,.docx,.xls,.xlsx,.csv,.txt"
+                              onChange={(e) => { const list = Array.from(e.target.files ?? []); e.target.value = ""; upload(f, list); }} />
+                          </label>
+                          <span className="text-xs text-ink-mute">PDF, image, Word or Excel · max 10 MB each{f.multiple ? ` · up to ${max} files` : ""}</span>
+                        </div>)}
+                    </div>);
+                })()}
                 {f.type === "signature" && <SignaturePad value={typeof v === "string" ? v : undefined} onChange={(s) => set(f.id, s)} disabled={preview} />}
                 {f.help && <p className="help">{f.help}</p>}
                 {err && <p className="mt-1 text-xs font-medium text-red-600">{err}</p>}

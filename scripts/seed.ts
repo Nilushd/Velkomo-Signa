@@ -17,6 +17,7 @@ const leaveSchema = [
   { id: "f_to", type: "date", label: "To", required: true },
   { id: "f_days", type: "number", label: "Number of days", required: true },
   { id: "f_reason", type: "textarea", label: "Reason", required: false },
+  { id: "f_docs", type: "file", label: "Attachments", required: false, multiple: true, maxFiles: 5, help: "e.g. medical certificate or travel booking" },
   { id: "f_sig", type: "signature", label: "Signature", required: false },
 ];
 
@@ -56,7 +57,7 @@ async function main() {
 
     const [form] = await sql`insert into forms (property_id, owner_id, title, description, short_code, schema, theme, status, visibility)
       values (${pid}, ${admin}, 'Leave Request', 'Apply for leave. A front-office reviewer checks it first, then the admin approves.', ${code()},
-        ${sql.json(leaveSchema)}, ${sql.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", thankYou: "Thanks! Your leave request is with your supervisor." })},
+        ${sql.json(leaveSchema)}, ${sql.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true, formCode: "HR-F-001 Rev 1", printFooter: "Human Resources · Please keep a copy for your records.", thankYou: "Thanks! Your leave request is with your supervisor." })},
         'published', 'assigned') returning id`;
     for (const [u, a] of [[admin, "review"], [r1, "review"], [r2, "review"], [g1, "general"], [g2, "general"], [g3, "general"]] as const)
       await sql`insert into form_access (property_id, form_id, user_id, access) values (${pid}, ${form.id}, ${u}, ${a})`;

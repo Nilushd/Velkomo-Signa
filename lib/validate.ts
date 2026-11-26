@@ -1,5 +1,5 @@
 import type { Field, FileRef } from "./types";
-import { isFileRef } from "./format";
+import { fileRefs } from "./format";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE_RE = /^[+()\d\s-]{6,20}$/;
@@ -42,10 +42,14 @@ export function validateAnswers(schema: Field[], raw: Record<string, unknown>) {
         if (arr.length === 0) { if (f.required) errors[f.id] = "This field is required."; continue; }
         v = arr; break;
       }
-      case "file":
-        if (!isFileRef(v)) { errors[f.id] = "Upload a file."; continue; }
-        v = { fileId: String((v as FileRef).fileId), name: String((v as FileRef).name).slice(0, 200), size: Number((v as FileRef).size) || 0 };
+      case "file": {
+        const refs = fileRefs(v).map((r: FileRef) => ({ fileId: String(r.fileId), name: String(r.name).slice(0, 200), size: Number(r.size) || 0 }));
+        if (refs.length === 0) { if (f.required) errors[f.id] = "Please attach a file."; continue; }
+        const max = f.multiple ? Math.min(f.maxFiles || 5, 20) : 1;
+        if (refs.length > max) { errors[f.id] = `Attach at most ${max} file${max > 1 ? "s" : ""}.`; continue; }
+        v = f.multiple ? refs : refs[0];
         break;
+      }
       case "signature": {
         const s = String(v);
         if (!s.startsWith("data:image/png;base64,") || s.length > 400_000) { errors[f.id] = "Please sign again."; continue; }
@@ -58,5 +62,5 @@ export function validateAnswers(schema: Field[], raw: Record<string, unknown>) {
 }
 
 export function fileIdsIn(schema: Field[], data: Record<string, unknown>): string[] {
-  return schema.filter((f) => f.type === "file").map((f) => data[f.id]).filter(isFileRef).map((r) => r.fileId);
+  return schema.filter((f) => f.type === "file").flatMap((f) => fileRefs(data[f.id])).map((r) => r.fileId);
 }

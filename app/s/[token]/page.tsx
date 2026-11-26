@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { rootSql } from "@/lib/db";
 import { asSystem } from "@/lib/auth";
 import { sha256 } from "@/lib/crypto";
@@ -20,6 +21,7 @@ export default async function StatusPage({ params }: { params: Promise<{ token: 
     <PublicShell background={d.form.theme.background}>
       <div className="mx-auto max-w-2xl space-y-4">
         <SummaryCard d={d} />
+        <div className="flex justify-end"><Link href={`/print/${d.sub.id}?s=${token}`} className="btn-secondary">Print / save as PDF</Link></div>
         {canEdit && <RequesterActions submissionId={d.sub.id} token={token} uploadCode={d.form.short_code} title={d.form.title} schema={d.form.schema} theme={d.form.theme} data={d.sub.data} comment={lastReject?.comment} />}
         {d.sub.status === "rejected" && d.sub.submitter_id && <Notice title="Rejected">Sign in to the app to edit and resubmit this request.</Notice>}
         <section className="card p-4"><h2 className="mb-3 font-semibold">Approval progress</h2><Progress d={d} /></section>

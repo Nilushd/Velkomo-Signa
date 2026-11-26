@@ -30,3 +30,14 @@
   .tab { @apply -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-ink-mute hover:text-ink; }
   .tab-active { @apply border-brand-600 text-brand-700; }
 }
+
+/* ---------- printable documents ---------- */
+@page { size: A4; margin: 12mm 12mm 14mm; }
+@media print {
+  html, body { background: #fff !important; }
+  .no-print { display: none !important; }
+  .print-sheet { box-shadow: none !important; border: 0 !important; margin: 0 !important; padding: 0 2px 0 0 !important; max-width: none !important; }
+  .avoid-break { break-inside: avoid; }
+  a { color: inherit !important; text-decoration: none !important; }
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}

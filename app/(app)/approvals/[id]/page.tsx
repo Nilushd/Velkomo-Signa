@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Printer } from "lucide-react";
 import { requireUser, asUser } from "@/lib/auth";
 import { loadDetail } from "@/lib/submission-view";
 import { Answers, Progress, SummaryCard, History, OldVersions } from "@/components/submission-view";
@@ -24,7 +24,10 @@ export default async function ApprovalDetail({ params }: { params: Promise<{ id:
   const live = a.decision === "pending" && d.sub.status === "pending" && d.sub.version === a.version && d.sub.current_level === a.level;
   return (
     <div className="mx-auto max-w-3xl space-y-4">
-      <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" /> My Approvals</Link>
+      <div className="flex items-center justify-between">
+        <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" /> My Approvals</Link>
+        <Link href={`/print/${d.sub.id}`} className="btn-secondary"><Printer className="h-4 w-4" /> Print / PDF</Link>
+      </div>
       <SummaryCard d={d} />
       <section className="card p-4">
         <h2 className="mb-3 font-semibold">Level {a.level}: {a.step_name}</h2>

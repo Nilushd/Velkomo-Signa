@@ -24,6 +24,8 @@ export interface BuilderData {
   submissionCount: number;
   url: string;
   isAdmin: boolean;
+  propertyName: string;
+  propertyLogo: string | null;
 }
 
 const TABS = ["Fields", "Theme", "Access", "Approvals", "Share & settings"] as const;
@@ -80,7 +82,7 @@ export function Builder({ data }: { data: BuilderData }) {
       </div>
 
       {tab === "Fields" && <FieldsTab schema={schema} setSchema={touch(setSchema)} description={description} setDescription={touch(setDescription)} />}
-      {tab === "Theme" && <ThemeTab theme={theme} setTheme={touch(setTheme)} title={title} description={description} schema={schema} />}
+      {tab === "Theme" && <ThemeTab theme={theme} setTheme={touch(setTheme)} title={title} description={description} schema={schema} propertyName={data.propertyName} propertyLogo={data.propertyLogo} />}
       {tab === "Access" && <AccessTab formId={data.form.id} initialVisibility={data.form.visibility} initial={data.access} users={data.users} groups={data.groups} />}
       {tab === "Approvals" && <ApprovalsTab formId={data.form.id} initial={data.steps} users={data.users} groups={data.groups} access={data.access} />}
       {tab === "Share & settings" && <ShareTab data={data} status={status} onStatus={changeStatus} pending={pending} />}
@@ -94,7 +96,7 @@ export function Builder({ data }: { data: BuilderData }) {
           </div>
           <div className="flex-1 overflow-auto px-4 pb-8" onClick={(e) => e.stopPropagation()}>
             <div className={clsx("mx-auto rounded-2xl p-4 transition-all", preview === "mobile" ? "max-w-[390px]" : "max-w-3xl")} style={{ background: theme.background || "#F4F7FC" }}>
-              <FormRenderer title={title} description={description} schema={schema} theme={theme} preview />
+              <FormRenderer title={title} description={description} schema={schema} theme={theme} preview propertyName={data.propertyName} propertyLogo={data.propertyLogo} />
             </div>
           </div>
         </div>

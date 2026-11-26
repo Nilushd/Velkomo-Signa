@@ -1,8 +1,8 @@
 import clsx from "clsx";
 import { CheckCircle2, XCircle, Clock, MinusCircle, Send, RotateCcw, Undo2, Flag } from "lucide-react";
 import type { Detail } from "@/lib/submission-view";
-import type { Field, FileRef } from "@/lib/types";
-import { formatValue, fmtDate, isFileRef } from "@/lib/format";
+import type { Field } from "@/lib/types";
+import { formatValue, fmtDate, fileRefs } from "@/lib/format";
 import { StatusBadge } from "./ui";
 
 export function Answers({ schema, data, fileQuery = "" }: { schema: Field[]; data: Record<string, unknown>; fileQuery?: string }) {
@@ -12,7 +12,9 @@ export function Answers({ schema, data, fileQuery = "" }: { schema: Field[]; dat
         if (f.type === "heading") return <h3 key={f.id} className="pb-1 pt-4 text-sm font-semibold text-brand-700">{f.label}</h3>;
         const v = data[f.id];
         let out: React.ReactNode = formatValue(f, v) || <span className="text-ink-mute">—</span>;
-        if (f.type === "file" && isFileRef(v)) out = <a className="text-brand-700 underline" href={`/api/files/${(v as FileRef).fileId}${fileQuery}`} target="_blank" rel="noreferrer">{(v as FileRef).name}</a>;
+        if (f.type === "file" && fileRefs(v).length) out = (
+          <ul className="space-y-1">{fileRefs(v).map((r) => (
+            <li key={r.fileId}><a className="text-brand-700 underline" href={`/api/files/${r.fileId}${fileQuery}`} target="_blank" rel="noreferrer">📎 {r.name}</a></li>))}</ul>);
         // eslint-disable-next-line @next/next/no-img-element
         if (f.type === "signature" && typeof v === "string" && v) out = <img src={v} alt="Signature" className="h-20 rounded border border-ink-line bg-white" />;
         return (
@@ -89,6 +91,7 @@ export function SummaryCard({ d }: { d: Detail }) {
       <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-sm font-semibold">{d.sub.ref_no}</span><StatusBadge status={d.sub.status} />
         {d.sub.version > 1 && <span className="badge bg-ink-wash text-ink-soft">Version {d.sub.version}</span>}</div>
       <p className="mt-2 text-sm text-ink-mute">{d.form.title} · by {d.sub.submitter} · {fmtDate(d.sub.created_at)}</p>
+      <p className="mt-1 text-xs text-ink-mute">Verification code <span className="font-mono font-semibold text-ink-soft">{d.sub.verify_code}</span></p>
     </div>
   );
 }

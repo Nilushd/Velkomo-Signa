@@ -1,6 +1,6 @@
 "use client";
 import { useState, useTransition } from "react";
-import { Copy, Download, Check } from "lucide-react";
+import { Copy, Download, Check, Printer } from "lucide-react";
 import { saveSettings, deleteForm, duplicateForm, transferOwner } from "@/app/actions/forms";
 import { Alert } from "../ui";
 import type { BuilderData } from "./builder";
@@ -31,6 +31,7 @@ export function ShareTab({ data, status, onStatus, pending }: { data: BuilderDat
             <a href={`${qr}?format=png&download=1`} className="btn-secondary"><Download className="h-4 w-4" /> PNG</a>
             <a href={`${qr}?format=svg&download=1`} className="btn-secondary"><Download className="h-4 w-4" /> SVG</a>
             <a href={wa} target="_blank" rel="noreferrer" className="btn-secondary">Share on WhatsApp</a>
+            <a href={`/print/form/${data.form.id}`} target="_blank" rel="noreferrer" className="btn-secondary"><Printer className="h-4 w-4" /> Printable blank form</a>
           </div>
         </div>
       </div>

@@ -4,10 +4,16 @@ export function isFileRef(v: unknown): v is FileRef {
   return !!v && typeof v === "object" && "fileId" in (v as object);
 }
 
+/** File field values are one FileRef or (multiple) an array of them. */
+export function fileRefs(v: unknown): FileRef[] {
+  if (Array.isArray(v)) return v.filter(isFileRef);
+  return isFileRef(v) ? [v] : [];
+}
+
 export function formatValue(field: Pick<Field, "type">, v: unknown): string {
   if (v === null || v === undefined || v === "") return "";
   if (field.type === "signature") return v ? "Signed" : "";
-  if (field.type === "file") return isFileRef(v) ? v.name : "";
+  if (field.type === "file") return fileRefs(v).map((f) => f.name).join(", ");
   if (Array.isArray(v)) return v.join(", ");
   if (typeof v === "boolean") return v ? "Yes" : "No";
   return String(v);

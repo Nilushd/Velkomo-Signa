@@ -10,15 +10,39 @@ export interface Field {
   placeholder?: string;
   help?: string;
   options?: string[];
+  /** file fields: allow several files (stored as FileRef[]) */
+  multiple?: boolean;
+  /** file fields: max number of files when multiple (default 5) */
+  maxFiles?: number;
 }
 
 export interface Theme {
   primary?: string;
   background?: string;
   font?: "sans" | "serif" | "rounded";
+  /** which logo the header shows; older forms only have logoFileId (= custom) */
+  logoSource?: "property" | "custom" | "none";
   logoFileId?: string | null;
+  logoAlign?: "left" | "center" | "right";
+  logoSize?: "s" | "m" | "l";
+  /** show the hotel / property name in the header */
+  showPropertyName?: boolean;
+  /** document control code printed on the form, e.g. "HR-F-012 Rev 2" */
+  formCode?: string;
+  /** small text printed at the bottom of every printed page, e.g. address or policy note */
+  printFooter?: string;
   thankYou?: string;
 }
+
+/** Resolve the header logo for a form: the property's logo, the form's own, or none. */
+export function headerLogo(theme: Theme, propertyLogo: string | null | undefined): string | null {
+  const src = theme.logoSource ?? (theme.logoFileId ? "custom" : "none");
+  if (src === "property") return propertyLogo ?? null;
+  if (src === "custom") return theme.logoFileId ?? null;
+  return null;
+}
+
+export const LOGO_HEIGHT = { s: 40, m: 64, l: 96 } as const;
 
 export const FIELD_TYPES: { type: FieldType; label: string }[] = [
   { type: "text", label: "Text" },
@@ -71,6 +95,7 @@ export interface SubmissionRow {
   version: number;
   status: SubmissionStatus;
   current_level: number;
+  verify_code: string;
   created_at: Date;
   updated_at: Date;
 }

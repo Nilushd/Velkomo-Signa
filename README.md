@@ -11,7 +11,11 @@ Form builder and approval workflow for properties. People design a form (from sc
 | **Login** | Property code + username + password · show password · remember property code · one generic error · 5 failed tries lock the account for 15 min · forced password change on first login · forgot-password e-mail (or "contact your admin") |
 | **Multi-property** | Every table carries `property_id`; Postgres Row Level Security isolates properties. Super Admin creates properties and their first Admin |
 | **Users & groups** | Admin creates users (username, temp password, name, department, optional e-mail), edits, deactivates, resets passwords, unlocks, groups users, and sets **No / General / Review** access per form from the user's page |
-| **Form builder** | Drag-and-drop field list · text, long text, number, date, dropdown, radio, checkbox, e-mail, phone, file upload, signature, section heading · label / required / placeholder / help / options · theme (logo, header colour, background, 3 fonts, thank-you message) · desktop/mobile preview · draft → publish |
+| **Form builder** | Drag-and-drop field list · text, long text, number, date, dropdown, radio, checkbox, e-mail, phone, file upload, signature, section heading · label / required / placeholder / help / options · desktop/mobile preview · draft → publish |
+| **Header & branding** | Use the **hotel logo** (set once in Settings → Property), upload a form-specific logo, or none · logo position (left / centre / right) and size · show the hotel name · document-control **form code** (e.g. `HR-F-012 Rev 2`) · header colour, background, 3 fonts · thank-you message · print footer |
+| **Attachments** | File fields can take one file or **several (up to 2–20)**; one click adds an "Attachments section" · PDF, images, Word, Excel, CSV · 10 MB each · shown as download links to reviewers and listed on the printout |
+| **Printable documents** | A4 print / Save-as-PDF of any request: hotel header, document number, version, **verification code and QR**, status stamp, every answer (signatures as images, attachments listed), approval record (who, decision, date, comment), content fingerprint · **blank paper version** of any form with a "scan to fill online" QR and sign-off boxes per level |
+| **Verification** | QR opens `/v/<code>`; or anyone enters the document number + verification code at `/verify` · shows hotel, form, status, approvals and the fingerprint (never the answers) · rate-limited; reference numbers alone can't be looked up |
 | **Excel / CSV import** | First row → field labels; type detected from the next 20 rows (number, date, e-mail, phone, dropdown if ≤ 10 distinct values, else text); review table before creating |
 | **Publish & share** | `/f/<short-code>` link, QR code (PNG/SVG), WhatsApp share · visibility Public / All users / Assigned users · close on a date or after N submissions |
 | **Approvals** | 0–5 sequential levels per form · several approvers (users or groups) per level, picked from a searchable dropdown that only lists people with Review access · **first to act decides**, the others close as "Handled by …" · channel Email / App / Both · reminder after N days · no levels = auto-accept |
@@ -68,7 +72,7 @@ The seed creates a **Leave Request** form in each property with 2 levels (level 
 npm test
 ```
 
-Runs against `DATABASE_URL` (migrated + seeded): approve path, reject → edit → resubmit (restarts at level 1 as version 2), two approvers racing on one level (first wins, second gets "Already handled by …"), single-use tokens, auto-approve with no levels, users without access can't read/submit/review, general users only see their own submissions, property isolation.
+Runs against `DATABASE_URL` (migrated + seeded): attachment limits, verification codes and fingerprints, header logo choice, approve path, reject → edit → resubmit (restarts at level 1 as version 2), two approvers racing on one level (first wins, second gets "Already handled by …"), single-use tokens, auto-approve with no levels, users without access can't read/submit/review, general users only see their own submissions, property isolation.
 
 ## Deploy (Vercel + Supabase)
 
@@ -93,6 +97,9 @@ app/
   f/[code]          public / shared form page
   s/[token]         requester status page (edit & resubmit for public requesters)
   a/[token]         e-mail approval confirm page (no login)
+  print/[id]        printable document (signed-in users, or ?s=<status token>)
+  print/form/[id]   printable blank form
+  verify, v/[code]  public document verification
   api/              upload, files, qr, export, push/subscribe, cron/reminders
   actions/          server actions (auth, forms, submit, users, property)
 lib/

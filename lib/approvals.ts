@@ -5,7 +5,7 @@
  */
 import { asSystemTx } from "./tx";
 import type { Sql } from "./db";
-import { randomToken, sha256 } from "./crypto";
+import { randomToken, sha256, verifyCode } from "./crypto";
 import { emailLayout } from "./email";
 import { summaryRows } from "./format";
 import { appUrl } from "./env";
@@ -182,8 +182,8 @@ export async function submit(form: FormRow, data: Record<string, unknown>, who: 
     const ctx = await loadCtx(tx, f.property_id);
     const ref = await nextRef(tx, f.property_id);
     const [sub] = await tx<SubmissionRow[]>`
-      insert into submissions (property_id, form_id, ref_no, data, submitter_id, submitter_email, submitter_name, status, current_level)
-      values (${f.property_id}, ${f.id}, ${ref}, ${tx.json(data as never)}, ${who.userId}, ${who.email}, ${who.name}, 'pending', 1)
+      insert into submissions (property_id, form_id, ref_no, data, submitter_id, submitter_email, submitter_name, status, current_level, verify_code)
+      values (${f.property_id}, ${f.id}, ${ref}, ${tx.json(data as never)}, ${who.userId}, ${who.email}, ${who.name}, 'pending', 1, ${verifyCode()})
       returning *`;
     const token = await newStatusToken(tx, sub);
     const actor: Actor = { userId: who.userId, name: who.name || who.email || "Public requester", via: who.userId ? "app" : "public" };

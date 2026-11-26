@@ -8,8 +8,8 @@ import type { Field, Theme } from "@/lib/types";
 
 declare global { interface Window { hcaptcha?: { render: (el: HTMLElement, o: { sitekey: string }) => string; getResponse: (id?: string) => string; reset: (id?: string) => void } } }
 
-export function FillForm({ code, title, description, schema, theme, signedInAs, captchaSiteKey, initial }:
-  { code: string; title: string; description: string; schema: Field[]; theme: Theme; signedInAs: string | null; captchaSiteKey: string | null; initial?: Record<string, unknown> }) {
+export function FillForm({ code, title, description, schema, theme, signedInAs, captchaSiteKey, initial, propertyName, propertyLogo }:
+  { code: string; title: string; description: string; schema: Field[]; theme: Theme; signedInAs: string | null; captchaSiteKey: string | null; initial?: Record<string, unknown>; propertyName: string; propertyLogo: string | null }) {
   const [done, setDone] = useState<{ refNo: string; status: string; statusToken?: string; id?: string } | null>(null);
   const cap = useRef<HTMLDivElement>(null);
   const capId = useRef<string | undefined>(undefined);
@@ -47,7 +47,7 @@ export function FillForm({ code, title, description, schema, theme, signedInAs, 
     );
   }
   return (
-    <FormRenderer title={title} description={description} schema={schema} theme={theme} uploadCode={code} initial={initial}
+    <FormRenderer title={title} description={description} schema={schema} theme={theme} uploadCode={code} initial={initial} propertyName={propertyName} propertyLogo={propertyLogo}
       header={signedInAs ? <p className="mt-3 text-xs text-ink-mute">Signed in as {signedInAs}</p> : null}
       footer={captchaSiteKey ? <div ref={cap} className="mb-3" /> : null}
       onSubmit={async (data) => {
