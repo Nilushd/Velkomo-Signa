@@ -77,6 +77,7 @@ create table files (
   property_id uuid not null references properties(id) on delete cascade,
   form_id uuid,
   uploaded_by uuid,
+  is_public boolean not null default false,   -- logos shown on public forms
   name text not null,
   mime text not null,
   size int not null,

@@ -51,18 +51,18 @@ export interface EmailButton { label: string; url: string; color?: string }
 
 export function emailLayout(opts: { title: string; intro?: string; rows?: [string, string][]; buttons?: EmailButton[]; footer?: string; propertyName?: string }) {
   const rows = (opts.rows ?? []).map(([k, v]) =>
-    `<tr><td style="padding:6px 12px 6px 0;color:#6B6A85;font-size:13px;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:6px 0;color:#18172B;font-size:14px">${esc(v)}</td></tr>`).join("");
+    `<tr><td style="padding:6px 12px 6px 0;color:#5B6B88;font-size:13px;vertical-align:top;white-space:nowrap">${esc(k)}</td><td style="padding:6px 0;color:#0F172A;font-size:14px">${esc(v)}</td></tr>`).join("");
   const buttons = (opts.buttons ?? []).map((b) =>
-    `<a href="${esc(b.url)}" style="display:inline-block;margin:4px 8px 4px 0;padding:11px 20px;border-radius:8px;background:${b.color ?? "#4F46E5"};color:#fff;font-weight:600;font-size:14px;text-decoration:none">${esc(b.label)}</a>`).join("");
-  return `<!doctype html><html><body style="margin:0;background:#F5F5FB;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif">
+    `<a href="${esc(b.url)}" style="display:inline-block;margin:4px 8px 4px 0;padding:11px 20px;border-radius:8px;background:${b.color ?? "#2563EB"};color:#fff;font-weight:600;font-size:14px;text-decoration:none">${esc(b.label)}</a>`).join("");
+  return `<!doctype html><html><body style="margin:0;background:#F4F7FC;font-family:Inter,Segoe UI,Helvetica,Arial,sans-serif">
 <table width="100%" cellpadding="0" cellspacing="0" style="padding:24px 12px"><tr><td align="center">
-<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:14px;border:1px solid #E4E4F0">
-<tr><td style="padding:20px 24px;border-bottom:1px solid #EEEEF6;font-weight:700;color:#1E1B4B;font-size:15px">velkomo <span style="color:#4F46E5">signa</span>${opts.propertyName ? ` <span style="color:#6B6A85;font-weight:500">· ${esc(opts.propertyName)}</span>` : ""}</td></tr>
+<table width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#fff;border-radius:14px;border:1px solid #E2E8F0">
+<tr><td style="padding:20px 24px;border-bottom:1px solid #E8EEF7;font-weight:700;color:#0B1F4D;font-size:15px">velkomo <span style="color:#2563EB">signa</span>${opts.propertyName ? ` <span style="color:#5B6B88;font-weight:500">· ${esc(opts.propertyName)}</span>` : ""}</td></tr>
 <tr><td style="padding:24px">
-<h1 style="margin:0 0 8px;font-size:20px;color:#18172B">${esc(opts.title)}</h1>
-${opts.intro ? `<p style="margin:0 0 16px;color:#3F3E57;font-size:14px;line-height:1.5">${esc(opts.intro)}</p>` : ""}
+<h1 style="margin:0 0 8px;font-size:20px;color:#0F172A">${esc(opts.title)}</h1>
+${opts.intro ? `<p style="margin:0 0 16px;color:#334155;font-size:14px;line-height:1.5">${esc(opts.intro)}</p>` : ""}
 ${rows ? `<table cellpadding="0" cellspacing="0" style="margin:0 0 18px">${rows}</table>` : ""}
 ${buttons}
-${opts.footer ? `<p style="margin:18px 0 0;color:#8A89A0;font-size:12px;line-height:1.5">${esc(opts.footer)}</p>` : ""}
+${opts.footer ? `<p style="margin:18px 0 0;color:#7C8AA5;font-size:12px;line-height:1.5">${esc(opts.footer)}</p>` : ""}
 </td></tr></table></td></tr></table></body></html>`;
 }

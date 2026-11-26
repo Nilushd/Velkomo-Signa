@@ -1,0 +1,32 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html { -webkit-text-size-adjust: 100%; }
+  body { @apply bg-ink-wash text-ink antialiased; font-feature-settings: "cv11", "ss01"; }
+  h1, h2, h3 { @apply font-display tracking-tight; }
+  :focus-visible { @apply outline-none ring-2 ring-brand-500 ring-offset-2; }
+}
+
+@layer components {
+  .btn { @apply inline-flex items-center justify-center gap-2 rounded-lg px-3.5 py-2 text-sm font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed whitespace-nowrap; }
+  .btn-primary { @apply btn bg-brand-600 text-white hover:bg-brand-700 shadow-sm; }
+  .btn-secondary { @apply btn bg-white text-ink border border-ink-line hover:bg-ink-wash; }
+  .btn-ghost { @apply btn text-ink-soft hover:bg-ink-wash; }
+  .btn-danger { @apply btn bg-[#D92D20] text-white hover:bg-[#B42318]; }
+  .btn-success { @apply btn bg-[#047857] text-white hover:bg-[#065F46]; }
+  .btn-sm { @apply px-2.5 py-1.5 text-xs; }
+  .input { @apply block w-full rounded-lg border border-ink-line bg-white px-3 py-2 text-sm text-ink placeholder:text-ink-mute/70 focus:border-brand-500 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:bg-ink-wash; }
+  .label { @apply mb-1 block text-sm font-medium text-ink-soft; }
+  .help { @apply mt-1 text-xs text-ink-mute; }
+  .card { @apply rounded-xl border border-ink-line bg-white shadow-card; }
+  .badge { @apply inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium; }
+  .table { @apply w-full text-left text-sm; }
+  .table th { @apply border-b border-ink-line bg-ink-wash/60 px-3 py-2 text-xs font-semibold uppercase tracking-wide text-ink-mute; }
+  .table td { @apply border-b border-ink-line/70 px-3 py-2.5 align-top; }
+  .page-title { @apply text-2xl font-bold text-ink; }
+  .muted { @apply text-ink-mute; }
+  .tab { @apply -mb-px border-b-2 border-transparent px-3 py-2 text-sm font-medium text-ink-mute hover:text-ink; }
+  .tab-active { @apply border-brand-600 text-brand-700; }
+}

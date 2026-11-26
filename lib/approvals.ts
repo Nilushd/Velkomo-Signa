@@ -70,9 +70,9 @@ export async function approvalEmail(ctx: { propertyName: string; propertyId: str
       intro: `${opts.sub.submitter_name || "A requester"} submitted ${opts.sub.ref_no}${opts.sub.version > 1 ? ` (version ${opts.sub.version})` : ""}. Step: ${opts.stepName}.`,
       rows: summaryRows(opts.form.schema, opts.sub.data),
       buttons: [
-        { label: "Approve", url: `${base}?d=approve`, color: "#0E9F6E" },
+        { label: "Approve", url: `${base}?d=approve`, color: "#047857" },
         { label: "Reject", url: `${base}?d=reject`, color: "#D92D20" },
-        { label: "View details", url: base, color: "#4F46E5" },
+        { label: "View details", url: base, color: "#2563EB" },
       ],
       footer: `This link works once, needs no login and expires in ${TOKEN_DAYS} days. If several people approve this step, the first to act decides.`,
     }),

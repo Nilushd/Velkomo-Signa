@@ -41,7 +41,7 @@ async function main() {
   const sp = await property("VELKOMO", "Velkomo Platform");
   if (sp) await user(sp, "superadmin", "Super Admin", "Platform", { is_super_admin: true, is_admin: true, email: "superadmin@example.com" });
 
-  for (const [pc, name] of [["HTL01", "Lagoon Bay Hotel"], ["HTL02", "Hill Crest Resort"]]) {
+  for (const [pc, name] of [["HTL01", "Demo Hotel One"], ["HTL02", "Demo Hotel Two"]]) {
     const pid = await property(pc, name);
     if (!pid) continue;
     const lc = pc.toLowerCase();
@@ -56,7 +56,7 @@ async function main() {
 
     const [form] = await sql`insert into forms (property_id, owner_id, title, description, short_code, schema, theme, status, visibility)
       values (${pid}, ${admin}, 'Leave Request', 'Apply for leave. A front-office reviewer checks it first, then the admin approves.', ${code()},
-        ${sql.json(leaveSchema)}, ${sql.json({ primary: "#4F46E5", background: "#F5F5FB", font: "sans", thankYou: "Thanks! Your leave request is with your supervisor." })},
+        ${sql.json(leaveSchema)}, ${sql.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", thankYou: "Thanks! Your leave request is with your supervisor." })},
         'published', 'assigned') returning id`;
     for (const [u, a] of [[admin, "review"], [r1, "review"], [r2, "review"], [g1, "general"], [g2, "general"], [g3, "general"]] as const)
       await sql`insert into form_access (property_id, form_id, user_id, access) values (${pid}, ${form.id}, ${u}, ${a})`;

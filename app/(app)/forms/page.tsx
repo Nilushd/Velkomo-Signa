@@ -1,0 +1,47 @@
+import Link from "next/link";
+import { requireBuilder, asUser } from "@/lib/auth";
+import { PageHeader, StatusBadge, Empty } from "@/components/ui";
+import { fmtDate } from "@/lib/format";
+import { FileSpreadsheet, Plus } from "lucide-react";
+
+export const metadata = { title: "Forms" };
+
+const VIS: Record<string, string> = { public: "Public", all_users: "All users", assigned: "Assigned users" };
+
+export default async function FormsPage() {
+  const u = await requireBuilder();
+  const forms = await asUser(u, (tx) => tx<{ id: string; title: string; status: string; visibility: string; short_code: string; updated_at: Date; owner: string | null; total: number; pending: number; levels: number }[]>`
+    select f.id, f.title, f.status, f.visibility, f.short_code, f.updated_at, o.name as owner,
+      (select count(*)::int from submissions s where s.form_id = f.id) as total,
+      (select count(*)::int from submissions s where s.form_id = f.id and s.status = 'pending') as pending,
+      (select count(*)::int from approval_steps st where st.form_id = f.id) as levels
+    from forms f left join users o on o.id = f.owner_id
+    where ${u.is_admin} or f.owner_id = ${u.id}
+    order by f.updated_at desc`);
+  return (
+    <>
+      <PageHeader title="Forms" subtitle={u.is_admin ? "Every form in this property." : "Forms you own."}
+        actions={<>
+          <Link href="/forms/import" className="btn-secondary"><FileSpreadsheet className="h-4 w-4" /> Import from Excel</Link>
+          <Link href="/forms/new" className="btn-primary"><Plus className="h-4 w-4" /> New form</Link>
+        </>} />
+      {forms.length === 0 ? <Empty title="No forms yet">Create a form from scratch, or turn an Excel sheet into a form in one step.</Empty> :
+        <div className="card overflow-x-auto">
+          <table className="table">
+            <thead><tr><th>Form</th><th>Status</th><th>Visibility</th><th className="text-right">Submissions</th><th className="text-right">Pending</th><th>Levels</th><th>Updated</th><th></th></tr></thead>
+            <tbody>{forms.map((f) => (
+              <tr key={f.id} className="hover:bg-ink-wash/60">
+                <td><Link href={`/forms/${f.id}/edit`} className="font-medium text-ink hover:text-brand-700">{f.title}</Link><p className="text-xs text-ink-mute">/f/{f.short_code}{f.owner ? ` · ${f.owner}` : ""}</p></td>
+                <td><StatusBadge status={f.status} /></td>
+                <td className="text-ink-soft">{VIS[f.visibility]}</td>
+                <td className="text-right tabular-nums">{f.total}</td>
+                <td className="text-right tabular-nums">{f.pending}</td>
+                <td className="text-ink-soft">{f.levels === 0 ? "Auto-accept" : f.levels}</td>
+                <td className="whitespace-nowrap text-ink-mute">{fmtDate(f.updated_at, false)}</td>
+                <td className="whitespace-nowrap text-right"><Link href={`/submissions?form=${f.id}`} className="text-sm text-brand-700 hover:underline">Submissions</Link></td>
+              </tr>))}</tbody>
+          </table>
+        </div>}
+    </>
+  );
+}

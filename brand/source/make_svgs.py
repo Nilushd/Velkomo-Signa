@@ -1,12 +1,12 @@
 """Velkomo Signa logo pack: SVG sources (lettering outlined from Inter Display, OFL).
-Same symbol geometry, wordmark and tile as Velkomo; Signa uses an indigo tile with a green approval tick."""
+Same symbol geometry, wordmark and tile as Velkomo; Signa uses a blue tile with a cyan approval tick."""
 import os, sys
 from fontTools.ttLib import TTFont
 from fontTools.pens.svgPathPen import SVGPathPen
 from fontTools.pens.boundsPen import BoundsPen
 OUT = sys.argv[1]; os.makedirs(OUT + "/svg", exist_ok=True)
-C = dict(indigo="#4F46E5", deep="#1E1B4B", ink="#18172B", tick="#34D399", tickdark="#0E9F6E",
-         sky="#A5B4FC", paper="#F5F5FB", white="#FFFFFF")
+C = dict(indigo="#2563EB", deep="#0B1F4D", ink="#0F172A", tick="#22D3EE", tickdark="#0891B2",
+         sky="#93C5FD", paper="#F4F7FC", white="#FFFFFF")
 
 def text_path(txt, font_file, size, tracking=0.0):
     f = TTFont(font_file); gs = f.getGlyphSet(); cmap = f.getBestCmap(); upm = f["head"].unitsPerEm
@@ -24,7 +24,7 @@ def text_path(txt, font_file, size, tracking=0.0):
 BOLD = "/usr/share/fonts/opentype/inter/InterDisplay-Bold.otf"
 MED = "/usr/share/fonts/opentype/inter/InterDisplay-Medium.otf"
 
-# the Velkomo welcoming V figure; the gold spark becomes a green approval tick (a signed, approved form)
+# the Velkomo welcoming V figure; the gold spark becomes a cyan approval tick (a signed, approved form)
 TICK = "M366 122 L394 150 L448 92"
 def figure(color, tick=C["tick"], sw=58):
     return (f'<path d="M146 204 L256 360 L366 204" fill="none" stroke="{color}" stroke-width="{sw}" stroke-linecap="round" stroke-linejoin="round"/>'
@@ -32,7 +32,7 @@ def figure(color, tick=C["tick"], sw=58):
             + (f'<path d="{TICK}" fill="none" stroke="{tick}" stroke-width="30" stroke-linecap="round" stroke-linejoin="round"/>' if tick else ""))
 
 def tile(inner, rx=116, light=False):
-    a, b, gid = ("#7C74FF", "#4338CA", "sl") if light else ("#5B54F0", C["deep"], "sg")
+    a, b, gid = ("#4F8DFF", "#1D4ED8", "sl") if light else ("#2F6BFF", C["deep"], "sg")
     return (f'<defs><linearGradient id="{gid}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{a}"/><stop offset="1" stop-color="{b}"/></linearGradient></defs>'
             f'<rect width="512" height="512" rx="{rx}" fill="url(#{gid})"/>' + inner)
 
@@ -85,8 +85,8 @@ save("velkomo-signa-logo-horizontal", horizontal(C["deep"], C["indigo"], ICON))
 save("velkomo-signa-logo-horizontal-white", horizontal(C["white"], C["sky"], ICON_ON_DARK))
 save("velkomo-signa-logo-horizontal-mono-black", horizontal(C["ink"], C["ink"], figure(C["ink"], tick=C["ink"])))
 save("velkomo-signa-logo-horizontal-mono-white", horizontal(C["white"], C["white"], figure(C["white"], tick=C["white"])))
-save("velkomo-signa-logo-tagline", horizontal(C["deep"], C["indigo"], ICON, tagline="#6B6A85"))
-save("velkomo-signa-logo-tagline-white", horizontal(C["white"], C["sky"], ICON_ON_DARK, tagline="#C7CBFF"))
+save("velkomo-signa-logo-tagline", horizontal(C["deep"], C["indigo"], ICON, tagline="#5B6B88"))
+save("velkomo-signa-logo-tagline-white", horizontal(C["white"], C["sky"], ICON_ON_DARK, tagline="#BFDBFE"))
 
 def stacked(c1, c2, icon_body):
     ih = 300; sc = ih / 512; gap = 44; w = max(WW, ih) + 24
@@ -97,12 +97,12 @@ def stacked(c1, c2, icon_body):
 save("velkomo-signa-logo-stacked", stacked(C["deep"], C["indigo"], ICON))
 save("velkomo-signa-logo-stacked-white", stacked(C["white"], C["sky"], ICON_ON_DARK))
 
-w, h, body = horizontal_parts(C["white"], C["sky"], ICON_ON_DARK, tagline="#C7CBFF")
+w, h, body = horizontal_parts(C["white"], C["sky"], ICON_ON_DARK, tagline="#BFDBFE")
 k = 900 / w
 save("velkomo-signa-social-1200x630", svg(1200, 630,
-     f'<defs><linearGradient id="bgx" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{C["deep"]}"/><stop offset="1" stop-color="#2E2A8A"/></linearGradient></defs>'
-     f'<rect width="1200" height="630" fill="url(#bgx)"/><circle cx="1110" cy="60" r="250" fill="#5B54F0" opacity=".25"/>'
-     f'<circle cx="90" cy="640" r="190" fill="#5B54F0" opacity=".18"/>'
+     f'<defs><linearGradient id="bgx" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="{C["deep"]}"/><stop offset="1" stop-color="#123A8C"/></linearGradient></defs>'
+     f'<rect width="1200" height="630" fill="url(#bgx)"/><circle cx="1110" cy="60" r="250" fill="#2F6BFF" opacity=".25"/>'
+     f'<circle cx="90" cy="640" r="190" fill="#2F6BFF" opacity=".18"/>'
      f'<g transform="translate({(1200 - w * k) / 2:.1f} {(630 - h * k) / 2:.1f}) scale({k:.4f})">{body}</g>'))
 save("velkomo-signa-avatar", svg(512, 512, f'<rect width="512" height="512" fill="{C["deep"]}"/><g transform="translate(76 76) scale(0.703)">{figure(C["white"])}</g>'))
 print("svgs:", len(os.listdir(OUT + "/svg")))
