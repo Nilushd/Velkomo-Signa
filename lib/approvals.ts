@@ -343,7 +343,11 @@ export async function deleteRequest(propertyId: string, submissionId: string, wh
     const fileIds = [...new Set([sub.data, ...older.map((o) => o.data)].flatMap((d) => fileIdsIn(form.schema, d)))];
     const gone = await tx`delete from submissions where id = ${sub.id}`;
     if (gone.count !== 1) throw new Error("Request could not be deleted");
-    if (fileIds.length) await tx`delete from files where id in ${tx(fileIds)} and form_id = ${sub.form_id}`;
+    if (fileIds.length) {
+      const keys = await tx<{ storage_key: string | null }[]>`delete from files where id in ${tx(fileIds)} and form_id = ${sub.form_id} returning storage_key`;
+      const { removeObjects } = await import("./storage");
+      await removeObjects(keys.map((k) => k.storage_key).filter((k): k is string => !!k));
+    }
     await tx`insert into audit_log (property_id, submission_id, form_id, actor, actor_user_id, action, detail)
       values (${sub.property_id}, null, ${sub.form_id}, ${actorName}, ${actorOf(who, actorName).userId}, 'deleted',
         ${tx.json({ ref_no: sub.ref_no, form: form.title, status: sub.status, submitter: sub.submitter_name, files: fileIds.length } as never)})`;

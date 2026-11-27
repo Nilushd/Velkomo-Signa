@@ -14,8 +14,11 @@ type Res = { ok: true; refNo: string; status: string; statusToken?: string; id?:
 async function filesBelong(form: FormRow, data: Record<string, unknown>) {
   const ids = fileIdsIn(form.schema, data);
   if (!ids.length) return true;
-  const rows = await rootSql()`select id from files where id in ${rootSql()(ids)} and form_id = ${form.id}`;
-  return rows.length === ids.length;
+  const rows = await rootSql()`select id from files where id in ${rootSql()(ids)} and form_id = ${form.id} and state = 'ready'`;
+  if (rows.length !== ids.length) return false;
+  // in use now — the daily clean-up only removes uploads nobody submitted
+  await rootSql()`update files set attached_at = coalesce(attached_at, now()) where id in ${rootSql()(ids)}`;
+  return true;
 }
 
 function guessName(schema: Field[], data: Record<string, unknown>) {

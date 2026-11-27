@@ -3,6 +3,8 @@ import { requireUser, asUser } from "@/lib/auth";
 import { loadDelegations, approvableForms } from "@/lib/delegation";
 import { DelegationPanel } from "@/components/delegation-panel";
 import { EmailPref } from "@/components/email-pref";
+import { storageUsage } from "@/lib/housekeeping";
+import { usesObjectStorage } from "@/lib/storage";
 import { PageHeader } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { PropertyForm } from "./property-form";
@@ -16,6 +18,8 @@ export default async function Settings() {
     dl: await loadDelegations(tx, u.id),
     forms: await approvableForms(tx, u.id),
   }));
+  const usage = u.is_admin ? await storageUsage(u.property_id) : null;
+  const mb = (b: number) => (b < 1024 * 1024 ? `${Math.max(1, Math.round(b / 1024))} KB` : `${(b / 1024 / 1024).toFixed(1)} MB`);
   return (
     <div className="max-w-3xl space-y-6">
       <PageHeader title="Settings" />
@@ -50,6 +54,13 @@ export default async function Settings() {
         <section className="card p-5">
           <h2 className="mb-4 font-semibold">Property</h2>
           <PropertyForm name={u.property_name} logo={u.property_logo} code={u.property_code} />
+          {usage && (
+            <div className="mt-5 grid gap-3 border-t border-ink-line pt-4 text-sm sm:grid-cols-3">
+              <div><p className="text-ink-mute">Attachments &amp; logos</p><p className="font-semibold">{mb(usage.fileBytes)} <span className="font-normal text-ink-mute">· {usage.files} files</span></p></div>
+              <div><p className="text-ink-mute">Form answers &amp; history</p><p className="font-semibold">{mb(usage.dataBytes)}</p></div>
+              <div><p className="text-ink-mute">Files are stored in</p><p className="font-semibold">{usesObjectStorage() ? "Supabase Storage" : "the database (dev mode)"}</p></div>
+              <p className="text-xs text-ink-mute sm:col-span-3">Photos are shrunk on the phone before upload; unused uploads, old e-mail copies and old notifications are cleaned up every night.</p>
+            </div>)}
         </section>)}
     </div>
   );

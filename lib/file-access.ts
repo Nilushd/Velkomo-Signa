@@ -2,7 +2,7 @@ import { getSession, asUser } from "./auth";
 import { rootSql } from "./db";
 import { sha256 } from "./crypto";
 
-export interface StoredFile { id: string; property_id: string; name: string; mime: string; data: Buffer; is_public: boolean; uploaded_by: string | null }
+export interface StoredFile { id: string; property_id: string; name: string; mime: string; data: Buffer | null; storage_key: string | null; is_public: boolean; uploaded_by: string | null; size: number }
 
 /**
  * May this request read the file? Logos are public. Attachments: a signed-in user of the property who can see a
@@ -38,4 +38,11 @@ export async function canReadFile(f: Pick<StoredFile, "id" | "property_id" | "is
 export function disposition(kind: "inline" | "attachment", name: string) {
   const ascii = name.replace(/[^\x20-\x7e]/g, "_").replace(/["\\]/g, "_");
   return `${kind}; filename="${ascii}"; filename*=UTF-8''${encodeURIComponent(name)}`;
+}
+
+/** The file's bytes, wherever they are stored (for the ZIP, PDFs, and the upload check). */
+export async function fileBytes(f: { data: Buffer | null; storage_key: string | null }): Promise<Uint8Array | null> {
+  if (f.data) return new Uint8Array(f.data);
+  if (f.storage_key) { const { getObject } = await import("./storage"); return getObject(f.storage_key); }
+  return null;
 }

@@ -8,6 +8,7 @@ import { loadDetail } from "@/lib/submission-view";
 import { headerLogo } from "@/lib/types";
 import { buildPdf, type PdfItem } from "@/lib/pdf/render";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
+import { fileBytes } from "@/lib/file-access";
 
 export const maxDuration = 60;
 const MAX = 100;
@@ -50,8 +51,9 @@ export async function GET(req: Request) {
       if (!d) continue; // not visible to this user
       const logoId = headerLogo(d.form.theme, p?.logo_file_id);
       if (logoId && !logos.has(logoId)) {
-        const [f] = await tx<{ data: Buffer; mime: string }[]>`select data, mime from files where id = ${logoId}`;
-        logos.set(logoId, f ? { bytes: new Uint8Array(f.data), mime: f.mime } : null);
+        const [f] = await tx<{ data: Buffer | null; storage_key: string | null; mime: string }[]>`select data, storage_key, mime from files where id = ${logoId}`;
+        const bytes = f ? await fileBytes(f) : null;
+        logos.set(logoId, bytes ? { bytes, mime: f.mime } : null);
       }
       out.push({ d, propertyName: p?.name ?? "", logo: logoId ? logos.get(logoId) ?? null : null,
         verifyUrl: `${appUrl()}/v/${d.sub.verify_code}`, verifyPage: `${appUrl()}/verify`, fingerprint: fingerprint(d.sub.ref_no, d.sub.version, d.sub.data) });

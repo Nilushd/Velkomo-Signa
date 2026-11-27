@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useRef } from "react";
 
+/** Signatures are stored with the answers, so keep them small: at most 600 px wide (≈10–30 KB). */
+function compact(src: HTMLCanvasElement) {
+  const w = Math.min(600, src.width), h = Math.round(src.height * (w / src.width));
+  const c = document.createElement("canvas"); c.width = w; c.height = h;
+  c.getContext("2d")!.drawImage(src, 0, 0, w, h);
+  return c.toDataURL("image/png");
+}
+
 export function SignaturePad({ value, onChange, disabled, color = "#0F172A" }: { value?: string; onChange: (v: string) => void; disabled?: boolean; color?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
   const drawing = useRef(false);
@@ -29,7 +37,7 @@ export function SignaturePad({ value, onChange, disabled, color = "#0F172A" }: {
   function up() {
     if (!drawing.current) return;
     drawing.current = false;
-    if (dirty.current) onChange(ref.current!.toDataURL("image/png"));
+    if (dirty.current) onChange(compact(ref.current!));
   }
   function clear() {
     const c = ref.current!; c.getContext("2d")!.clearRect(0, 0, c.width, c.height); dirty.current = false; onChange("");

@@ -3,6 +3,7 @@ import { useActionState, useState } from "react";
 import { updateProperty } from "@/app/actions/property";
 import { SubmitButton } from "@/components/submit-button";
 import { Alert } from "@/components/ui";
+import { uploadFile } from "@/lib/upload-client";
 
 export function PropertyForm({ name, logo, code }: { name: string; logo: string | null; code: string }) {
   const [state, run] = useActionState(updateProperty, undefined);
@@ -10,9 +11,8 @@ export function PropertyForm({ name, logo, code }: { name: string; logo: string 
   const [err, setErr] = useState<string | null>(null);
   async function upload(file: File) {
     setErr(null);
-    const fd = new FormData(); fd.append("file", file); fd.append("purpose", "logo");
-    const r = await fetch("/api/upload", { method: "POST", body: fd }); const j = await r.json();
-    if (!r.ok) setErr(j.error ?? "Upload failed"); else setLogoId(j.fileId);
+    try { const j = await uploadFile(file, { purpose: "logo" }); setLogoId(j.fileId); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
   }
   return (
     <form action={run} className="space-y-4">

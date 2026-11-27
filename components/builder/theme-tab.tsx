@@ -4,6 +4,7 @@ import clsx from "clsx";
 import { AlignLeft, AlignCenter, AlignRight } from "lucide-react";
 import { headerLogo, type Field, type Theme } from "@/lib/types";
 import { FormRenderer } from "../form-renderer";
+import { uploadFile } from "@/lib/upload-client";
 
 const SWATCHES = ["#2563EB", "#0B1F4D", "#0891B2", "#7C3AED", "#DB2777", "#EA580C", "#CA8A04", "#475569"];
 
@@ -27,11 +28,9 @@ export function ThemeTab({ theme, setTheme, title, description, schema, property
     if (!file.type.startsWith("image/")) { setErr("Choose an image file."); return; }
     if (file.size > 2 * 1024 * 1024) { setErr("Logos can be at most 2 MB."); return; }
     setUploading(true);
-    const fd = new FormData(); fd.append("file", file); fd.append("purpose", "logo");
-    const r = await fetch("/api/upload", { method: "POST", body: fd });
-    const j = await r.json();
-    setUploading(false);
-    if (!r.ok) setErr(j.error ?? "Upload failed"); else set({ logoFileId: j.fileId, logoSource: "custom" });
+    try { const j = await uploadFile(file, { purpose: "logo" }); set({ logoFileId: j.fileId, logoSource: "custom" }); }
+    catch (e) { setErr(e instanceof Error ? e.message : "Upload failed"); }
+    finally { setUploading(false); }
   }
   const logo = headerLogo(theme, propertyLogo);
   return (

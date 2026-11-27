@@ -3,6 +3,7 @@ import { useState } from "react";
 import clsx from "clsx";
 import { headerLogo, LOGO_HEIGHT, type Field, type Theme, type FileRef } from "@/lib/types";
 import { fileRefs } from "@/lib/format";
+import { uploadFile } from "@/lib/upload-client";
 import { Paperclip, X, Camera } from "lucide-react";
 import { SignaturePad } from "./signature-pad";
 
@@ -90,11 +91,8 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
     try {
       const done: FileRef[] = [];
       for (const file of files) {
-        const fd = new FormData(); fd.append("file", file); fd.append("code", uploadCode);
-        const r = await fetch("/api/upload", { method: "POST", body: fd });
-        const j = await r.json();
-        if (!r.ok) throw new Error(`${file.name}: ${j.error || "upload failed"}`);
-        done.push(j as FileRef);
+        try { done.push(await uploadFile(file, { code: uploadCode })); }
+        catch (e) { throw new Error(`${file.name}: ${e instanceof Error ? e.message : "upload failed"}`); }
       }
       set(f.id, f.multiple ? [...current, ...done] : done[0]);
     } catch (e) {

@@ -17,12 +17,13 @@ const MAGIC: Record<string, (b: Uint8Array) => boolean> = {
 };
 
 /** Check extension, declared type and (where we can) the file's magic bytes. Returns the mime to store or an error. */
-export function checkFile(name: string, declared: string, bytes: Uint8Array, opts: { imagesOnly?: boolean } = {}): { mime: string } | { error: string } {
+/** `bytes` null = check name and declared type only (before a direct-to-storage upload); the content is checked after. */
+export function checkFile(name: string, declared: string, bytes: Uint8Array | null, opts: { imagesOnly?: boolean } = {}): { mime: string } | { error: string } {
   const ext = (name.split(".").pop() ?? "").toLowerCase();
   const types = ALLOWED[ext];
   if (!types || (opts.imagesOnly && !["png", "jpg", "jpeg", "webp", "gif", "svg"].includes(ext))) return { error: "This file type isn't allowed." };
   if (ext === "svg") return opts.imagesOnly ? { error: "Please use PNG, JPG or WebP for logos." } : { error: "This file type isn't allowed." };
   if (declared && !types.includes(declared) && declared !== "application/octet-stream") return { error: "The file type doesn't match its extension." };
-  if (MAGIC[ext] && !MAGIC[ext](bytes)) return { error: "The file content doesn't match its type." };
+  if (bytes && MAGIC[ext] && !MAGIC[ext](bytes)) return { error: "The file content doesn't match its type." };
   return { mime: types[0] || "application/octet-stream" };
 }

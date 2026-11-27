@@ -36,10 +36,19 @@ Next.js 15 (App Router, TypeScript) · Tailwind CSS · dnd-kit · Postgres on **
 
 **AI design (optional).** Form Studio works without AI: rules in `lib/studio/parse.ts` read Excel and PDF samples in the browser. If `ANTHROPIC_API_KEY` is set, it can also read photos and scanned forms, and redo any design, by sending the sample to Claude (`app/actions/studio.ts`, model `claude-opus-5-5`, structured JSON output, rate-limited to 20 designs per user per hour). Nothing is sent to an AI service unless that key is set and the user clicks *Design with AI* (or uploads a photo/scan).
 
+### Storage on Vercel (keeping the server small)
+
+- **Files live in Supabase Storage**, not in the database, when `SUPABASE_URL` + `SUPABASE_SERVICE_ROLE_KEY` are set (create a *private* bucket, default name `signa-files`). The `files` table only keeps metadata.
+- **Uploads go straight from the browser to storage** with a one-time signed URL (`/api/upload/start` → PUT → `/api/upload/finish`, where the server re-checks size and real file type). Nothing large passes through Vercel, so Vercel's 4.5 MB request limit doesn't apply.
+- **Downloads and quick view** are short-lived signed links (60 s; logos 1 h) after the usual access check — file bytes don't flow through Vercel either.
+- **Smaller files to begin with:** phone photos are resized in the browser to ≤ 2000 px JPEG before upload (a 22 MB photo became ~670 KB); drawn signatures are saved at ≤ 600 px (≈ 10–30 KB).
+- **Nightly clean-up** (`lib/housekeeping.ts`, run by the Vercel cron): uploads nobody submitted (after 1 day), e-mail HTML copies (after 30 days), old notifications, expired sessions/links/rate-limit rows. Deleting a request removes its files from storage.
+- Admins see **storage used** in Settings → Property.
+- Without the Supabase Storage variables (local development) files are kept in the database as before.
+
 Two deliberate simplifications versus the original plan, both easy to change later:
 
 - **Sessions** are the app's own (random token, hashed in a `sessions` table, httpOnly cookie) instead of Supabase Auth with hidden internal e-mails. The login rules are exactly as specified; this just removes a moving part.
-- **Uploaded files** are stored in Postgres (`files.data`, max 10 MB each) instead of Supabase Storage, so the app needs only one service. Swap `app/api/upload` and `app/api/files` for Storage if files grow large.
 
 ### How isolation works
 
