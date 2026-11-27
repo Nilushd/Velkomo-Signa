@@ -19,10 +19,10 @@ Form builder and approval workflow for properties. People design a form (from sc
 | **Form Studio** | Drop in a **sample form** — Excel (a laid-out form or a table of column headings), a **PDF** (fillable PDFs use their real form fields; typed PDFs are read line by line), or, with AI design on, a **photo or scan** — and the system designs the digital form: title, form code, instructions, sections, fields with types (text, number, date, e-mail, phone, long text, choices from ☐ boxes, file, signature), required marks, and **approval levels suggested from the sign-off block** ("Checked by HOD", "Approved by GM"). Review it side by side with the original, edit, preview, choose **who can fill it in**, **add levels and pick approvers**, then **Save & publish** (opens the Share window) or **Save as draft** |
 | **Auto-save & editing** | Every change in the builder (fields, theme, access, approval levels) saves automatically a moment after you make it, with a clear "All changes saved" / "Not saved yet — reason" line. Every form has **Edit** and **Share** buttons in the Forms list, so it can be changed again any time |
 | **Publish & share** | **Share window** (opens automatically on publish): copy link, WhatsApp, e-mail, phone share sheet, QR code PNG/SVG, **printable QR poster**, printable blank form · `/f/<short-code>` link · visibility Public / All users / Assigned users · close on a date or after N submissions |
-| **Approvals** | 0–5 sequential levels per form · several approvers (users or groups) per level, picked from a searchable dropdown that only lists people with Review access · **first to act decides**, the others close as "Handled by …" · channel Email / App / Both · reminder after N days · no levels = auto-accept |
+| **Approvals** | 0–5 sequential levels per form · several approvers (users or groups) per level, picked from a searchable dropdown of everyone — anyone chosen gets Approval access to the form automatically · **first to act decides**, the others close as "Handled by …" · channel Email / App / Both · reminder after N days · no levels = auto-accept |
 | **E-mail approval** | Approve / Reject / View details buttons · 32-byte random token, stored as SHA-256 only, single use, 7-day expiry, bound to one approver and one level · confirm page (no change on GET, so link scanners can't approve) · comment required to reject |
 | **Requester** | Reference number `REQ-2026-0042` · e-mail receipt with status link · statuses Pending → Approved / Rejected → edit & resubmit (same ref, new version, restarts at level 1, old versions kept) · withdraw a rejected request |
-| **In-app** | Dashboard · My Forms · My Requests · My Approvals (Pending / Done) · Submissions table with search, filters and Excel/CSV export (Review access and admins) · full history timeline · notifications + Web Push · installable PWA |
+| **In-app** | Dashboard · My Forms · My Requests · My Approvals (Pending / Done) · Submissions table with search, filters and Excel/CSV export (Review/Approval access and admins) · full history timeline · notifications + Web Push · installable PWA |
 | **Security** | Server-side checks **and** RLS · rate limits on login, uploads and public submissions · optional hCaptcha · uploads ≤ 10 MB with extension, MIME and magic-byte checks · httpOnly session cookies |
 
 ## Tech stack
@@ -66,7 +66,7 @@ Open http://localhost:3000 and sign in (password `Welcome123` for every demo acc
 |---|---|---|
 | `VELKOMO` | `superadmin` | Super Admin (creates properties) |
 | `HTL01` / `HTL02` | `admin` | Admin, level-2 approver |
-| `HTL01` / `HTL02` | `manager`, `supervisor` | Review access, both level-1 approvers ("first wins") |
+| `HTL01` / `HTL02` | `manager`, `supervisor` | Approval access, both level-1 approvers ("first wins") |
 | `HTL01` / `HTL02` | `john`, `nimali`, `ravi` | General access |
 
 The seed creates a **Leave Request** form in each property with 2 levels (level 1 has 2 approvers). Without e-mail keys, every e-mail is printed to the console and saved in the `email_log` table — open the latest approval e-mail's HTML from there to try the no-login approval link.
