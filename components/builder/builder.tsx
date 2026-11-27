@@ -78,7 +78,7 @@ export function Builder({ data, fromStudio, openShare }: { data: BuilderData; fr
       if ("error" in r && r.error) { setMsg({ kind: "err", text: r.error }); if (/approver|level/i.test(r.error)) setTab("Approvals"); }
       else {
         setStat(s);
-        setMsg({ kind: "ok", text: s === "published" ? "Published — it's live. Share the link or QR code." : s === "closed" ? "Form closed." : "Moved back to draft." });
+        setMsg({ kind: "ok", text: s === "published" ? "Published — it's live. Share the link or QR code." : s === "closed" ? "Form disabled — it stops taking submissions and isn't charged." : "Moved back to draft." });
         if (s === "published") setShare(true);
       }
     });
@@ -93,7 +93,7 @@ export function Builder({ data, fromStudio, openShare }: { data: BuilderData; fr
         <div className="flex flex-wrap gap-2">
           <button className="btn-secondary" onClick={() => setPreview("desktop")}><Eye className="h-4 w-4" /> Preview</button>
           <button className="btn-secondary" onClick={() => setShare(true)}><Share2 className="h-4 w-4" /> Share</button>
-          {status !== "published" && <button className="btn-primary" disabled={pending} onClick={() => changeStatus("published")}><Send className="h-4 w-4" /> Publish</button>}
+          {status !== "published" && <button className="btn-primary" disabled={pending} onClick={() => changeStatus("published")}><Send className="h-4 w-4" /> {status === "closed" ? "Enable" : "Publish"}</button>}
         </div>
       </div>
       <p className={clsx("-mt-2 mb-3 flex items-center gap-1.5 pl-11 text-xs", saveState.s === "error" ? "text-red-700" : "text-ink-mute")} aria-live="polite">

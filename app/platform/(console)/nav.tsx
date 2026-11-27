@@ -3,11 +3,12 @@ import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import clsx from "clsx";
-import { Hotel, ShieldUser, UserCog, LogOut, Menu, X } from "lucide-react";
+import { Hotel, ShieldUser, UserCog, LogOut, Menu, X, ReceiptText } from "lucide-react";
 import { platformLogoutAction } from "@/app/actions/platform-auth";
 
 const NAV = [
   { href: "/platform", label: "Hotels", icon: Hotel, match: (p: string) => p === "/platform" || p.startsWith("/platform/new") },
+  { href: "/platform/billing", label: "Contracts & billing", icon: ReceiptText, match: (p: string) => p.startsWith("/platform/billing") },
   { href: "/platform/admins", label: "Super Admins", icon: ShieldUser, match: (p: string) => p.startsWith("/platform/admins") },
   { href: "/platform/account", label: "My account", icon: UserCog, match: (p: string) => p.startsWith("/platform/account") },
 ];

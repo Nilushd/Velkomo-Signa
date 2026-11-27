@@ -54,8 +54,8 @@ export function ShareTab({ data, status, onStatus, pending, onShare }: { data: B
         <div className="card space-y-3 p-5">
           <h2 className="font-semibold">Status</h2>
           <div className="flex flex-wrap gap-2">
-            {status !== "published" && <button className="btn-primary" disabled={pending} onClick={() => onStatus("published")}>Publish</button>}
-            {status === "published" && <button className="btn-secondary" disabled={pending} onClick={() => onStatus("closed")}>Close form</button>}
+            {status !== "published" && <button className="btn-primary" disabled={pending} onClick={() => onStatus("published")}>{status === "closed" ? "Enable form" : "Publish"}</button>}
+            {status === "published" && <button className="btn-secondary" disabled={pending} onClick={() => onStatus("closed")}>Disable form</button>}
             {status !== "draft" && <button className="btn-secondary" disabled={pending} onClick={() => onStatus("draft")}>Back to draft</button>}
             <button className="btn-secondary" onClick={() => start(() => duplicateForm(data.form.id))}>Duplicate</button>
             {data.submissionCount === 0 && <button className="btn-danger" onClick={() => { if (confirm("Delete this form? This can't be undone.")) start(() => deleteForm(data.form.id)); }}>Delete</button>}

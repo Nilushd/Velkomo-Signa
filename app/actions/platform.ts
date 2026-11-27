@@ -154,3 +154,43 @@ export async function deleteHotel(id: string, confirmCode: string) {
   revalidatePath("/platform");
   return { ok: true as const };
 }
+
+/* ---------- contracts & billing ---------- */
+const amount = z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Enter an amount like 1500 or 1500.00");
+const optAmount = amount.or(z.literal(""));
+
+export async function saveBillingSettings(_: FormState, fd: FormData): Promise<FormState> {
+  const u = await requireSuper();
+  const v = z.object({
+    currency: z.enum(["LKR", "USD", "EUR", "GBP", "INR", "AED", "MVR"]),
+    rate: amount, minimum: amount,
+    tax: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Tax must be a number").refine((x) => Number(x) <= 100, "Tax can't be over 100%"),
+  }).safeParse(Object.fromEntries(fd));
+  if (!v.success) return { error: v.error.issues[0].message };
+  await rootSql()`update billing_settings set currency = ${v.data.currency}, rate_per_form = ${v.data.rate}, minimum_monthly = ${v.data.minimum}, tax_pct = ${v.data.tax}, updated_at = now() where id = 1`;
+  await rootSql()`insert into platform_log (actor_id, actor_name, property_code, property_name, action, detail)
+    values (${u.id}, ${u.name}, '—', 'Platform', 'Default pricing', ${`${v.data.currency} ${v.data.rate} per form / month, minimum ${v.data.minimum}, tax ${v.data.tax}%`})`;
+  revalidatePath("/platform/billing");
+  return { ok: "Pricing saved." };
+}
+
+export async function saveContract(propertyId: string, _: FormState, fd: FormData): Promise<FormState> {
+  const u = await requireSuper();
+  const p = await getProp(propertyId);
+  const v = z.object({
+    contract_no: z.string().trim().max(60), starts_on: dateOrEmpty, cycle: z.enum(["monthly", "quarterly", "annual"]),
+    rate: optAmount, minimum: optAmount,
+    discount: z.string().trim().regex(/^\d+(\.\d{1,2})?$/, "Discount must be a number").refine((x) => Number(x) <= 100, "Discount can't be over 100%").or(z.literal("")),
+    contact_name: z.string().trim().max(120), contact_email: z.string().trim().email("Billing e-mail isn't valid").or(z.literal("")),
+    notes: z.string().max(1000),
+  }).safeParse(Object.fromEntries(fd));
+  if (!v.success) return { error: v.error.issues[0].message };
+  const d = v.data;
+  await rootSql()`insert into hotel_contracts (property_id, contract_no, starts_on, cycle, rate_per_form, minimum_monthly, discount_pct, contact_name, contact_email, notes, updated_at)
+    values (${propertyId}, ${d.contract_no || null}, ${d.starts_on || null}, ${d.cycle}, ${d.rate || null}, ${d.minimum || null}, ${d.discount || 0}, ${d.contact_name || null}, ${d.contact_email || null}, ${d.notes.trim() || null}, now())
+    on conflict (property_id) do update set contract_no = excluded.contract_no, starts_on = excluded.starts_on, cycle = excluded.cycle, rate_per_form = excluded.rate_per_form,
+      minimum_monthly = excluded.minimum_monthly, discount_pct = excluded.discount_pct, contact_name = excluded.contact_name, contact_email = excluded.contact_email, notes = excluded.notes, updated_at = now()`;
+  await log(u, p, "Contract updated", [d.contract_no && `No. ${d.contract_no}`, d.cycle, d.rate ? `rate ${d.rate}` : "default rate", d.discount && Number(d.discount) > 0 ? `${d.discount}% discount` : null].filter(Boolean).join(", "));
+  revalidatePath("/platform/billing");
+  return { ok: "Contract saved." };
+}

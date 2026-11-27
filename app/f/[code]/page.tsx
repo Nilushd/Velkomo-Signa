@@ -36,7 +36,7 @@ export default async function FormPage({ params }: { params: Promise<{ code: str
   }
   const [{ n }] = await rootSql()<{ n: number }[]>`select count(*)::int as n from submissions where form_id = ${form.id}`;
   if (form.status === "closed" || (form.closes_at && form.closes_at < new Date()) || (form.max_submissions && n >= form.max_submissions)) {
-    return <PublicShell background={bg}><Notice title={form.title}>This form is closed and no longer accepts submissions.</Notice></PublicShell>;
+    return <PublicShell background={bg}><Notice title={form.title}>This form isn&apos;t accepting submissions right now.</Notice></PublicShell>;
   }
   const [prop] = await rootSql()<{ name: string; logo_file_id: string | null }[]>`select name, logo_file_id from properties where id = ${form.property_id}`;
   return (

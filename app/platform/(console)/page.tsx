@@ -13,7 +13,7 @@ import { storageUsage } from "@/lib/housekeeping";
 export const metadata = { title: "Platform" };
 
 type Row = { id: string; property_code: string; name: string; notes: string | null; active: boolean; ends: string | null; days_left: number | null; created_at: Date;
-  admins: number; users: number; forms: number; subs: number; last_seen: Date | null };
+  admins: number; users: number; forms: number; active_forms: number; subs: number; last_seen: Date | null };
 
 const FILTERS: { v: string; label: string; match: (s: SubState) => boolean }[] = [
   { v: "all", label: "All", match: () => true },
@@ -32,6 +32,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
       (select count(*)::int from users where property_id = p.id and is_admin and active) as admins,
       (select count(*)::int from users where property_id = p.id and active) as users,
       (select count(*)::int from forms where property_id = p.id) as forms,
+      (select count(*)::int from forms where property_id = p.id and status = 'published') as active_forms,
       (select count(*)::int from submissions where property_id = p.id) as subs,
       (select max(s.created_at) from sessions s join users x on x.id = s.user_id where x.property_id = p.id) as last_seen
     from properties p
@@ -48,7 +49,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   const rows: HotelRow[] = await Promise.all(shown.map(async (p) => {
     const st = await storageUsage(p.id);
     return { id: p.id, property_code: p.property_code, name: p.name, notes: p.notes, active: p.active, ends: p.ends, endsLabel: p.ends ? fmtDay(p.ends) : null,
-      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
+      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, activeForms: p.active_forms, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
       storage: mb(st.fileBytes + st.dataBytes),
       admins: admins.filter((a) => a.property_id === p.id).map(({ property_id: _p, seen, ...a }) => ({ ...a, last_seen: seen ? fmtDate(seen) : null })) };
   }));
@@ -61,11 +62,13 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
     { label: "Expired", value: count("expired"), f: "expired", bad: count("expired") > 0 },
     { label: "Suspended", value: count("suspended"), f: "suspended" },
   ];
+  const activeFormsTotal = all.reduce((t, p) => t + p.active_forms, 0);
   return (
     <>
       <PageHeader title="Hotels" subtitle="Every hotel on Velkomo Signa — subscriptions and admin accounts."
         actions={<Link href="/platform/new" className="btn-primary"><Plus className="h-4 w-4" /> New hotel</Link>} />
       {deleted && <div className="mb-4"><Alert kind="success">Hotel {deleted} and all its data were deleted.</Alert></div>}
+      <p className="mb-3 text-sm text-ink-mute"><b className="text-ink">{activeFormsTotal}</b> enabled forms across all hotels · <Link href="/platform/billing" className="text-brand-700 hover:underline">Contracts &amp; billing →</Link></p>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.label} href={`/platform?show=${t.f}`} className={clsx("card p-4 transition hover:ring-brand-300", show === t.f && "ring-2 ring-brand-500")}>
