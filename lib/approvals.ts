@@ -94,7 +94,7 @@ async function startLevel(ctx: Ctx, form: FormRow, sub: SubmissionRow, level: nu
   // out of office: send to whoever is covering; one row per person even if they cover for several
   const targets: { id: string; name: string; email: string | null; forId: string | null; forName: string | null; delegationId: string | null }[] = [];
   for (const p of people) {
-    const c = await coverFor(tx, p.id);
+    const c = await coverFor(tx, p.id, form.id);
     const t = c ? { id: c.userId, name: c.name, email: c.email, forId: p.id, forName: p.name, delegationId: c.delegationId } : { ...p, forId: null, forName: null, delegationId: null };
     if (!targets.some((x) => x.id === t.id)) targets.push(t);
   }

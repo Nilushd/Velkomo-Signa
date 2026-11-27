@@ -55,6 +55,31 @@ describe("out of office", () => {
     expect(back).toMatchObject({ approver_user_id: U.supervisor.id, on_behalf_of: null });
   });
 
+  it("forwarding only selected forms leaves other forms with the original approver; one form can be stopped", async () => {
+    const [pf] = await sql<FormRow[]>`insert into forms (property_id, owner_id, title, short_code, schema, status, visibility)
+      values (${pid}, ${U.admin.id}, 'Purchase Requisition', ${"pr" + Math.random().toString(36).slice(2, 8)}, ${sql.json([{ id: "item", type: "text", label: "Item" }])}, 'published', 'all_users') returning *`;
+    await sql`insert into form_access (property_id, form_id, user_id, access) values (${pid}, ${pf.id}, ${U.admin.id}, 'approve')`;
+    const [st] = await sql`insert into approval_steps (property_id, form_id, level, name, channel) values (${pid}, ${pf.id}, 1, 'Admin approval', 'app') returning id`;
+    await sql`insert into approval_step_approvers (property_id, step_id, user_id) values (${pid}, ${st.id}, ${U.admin.id})`;
+    // admin away, but only Purchase Requisition goes to Ravi
+    const [d] = await sql`insert into delegations (property_id, from_user_id, to_user_id, starts_on, ends_on) values (${pid}, ${U.admin.id}, ${U.ravi.id}, current_date, current_date + 2) returning id`;
+    await sql`insert into delegation_forms (property_id, delegation_id, form_id) values (${pid}, ${d.id}, ${pf.id})`;
+    const pr = await submit(pf, { item: "Printer toner" }, { userId: U.john.id, name: U.john.name, email: null });
+    if (!pr.ok) throw new Error(pr.error);
+    expect((await pendingFor(pr.id))[0]).toMatchObject({ approver_user_id: U.ravi.id, on_behalf_of: U.admin.id });
+    // Leave Request level 2 still goes to the admin
+    const lr = await submit(form, data, { userId: U.john.id, name: U.john.name, email: null });
+    if (!lr.ok) throw new Error(lr.error);
+    const l1 = (await pendingFor(lr.id)).find((a) => a.approver_user_id === U.manager.id)!;
+    await decide(pid, l1.id, "approved", null, { userId: U.manager.id, name: U.manager.name, via: "app" });
+    expect((await pendingFor(lr.id))[0]).toMatchObject({ level: 2, approver_user_id: U.admin.id, on_behalf_of: null });
+    // stop forwarding the purchase form: its waiting approval comes back
+    const back = await tenant({ propertyId: pid, userId: null }, (tx) => returnWaiting(tx, [], d.id, pf.id));
+    expect(back).toBe(1);
+    expect((await pendingFor(pr.id))[0]).toMatchObject({ approver_user_id: U.admin.id, on_behalf_of: null });
+    await sql`update delegations set cancelled_at = now() where id = ${d.id}`;
+  });
+
   it("a colleague who is already an approver on that level isn't given the same approval twice", async () => {
     // manager and supervisor are both level-1 approvers; supervisor away, covered by manager
     await sql`insert into delegations (property_id, from_user_id, to_user_id, starts_on, ends_on) values (${pid}, ${U.supervisor.id}, ${U.manager.id}, current_date, current_date + 1)`;

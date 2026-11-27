@@ -23,8 +23,8 @@ export default async function Approvals({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="My Approvals" subtitle="Requests waiting for your decision." actions={<Link href="/settings#out-of-office" className="btn-secondary"><CalendarClock className="h-4 w-4" /> Out of office</Link>} />
-      {dl.forwarding.filter((d) => d.active).map((d) => <div key={d.id} className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">You&apos;re out of office until {d.ends_on} — new approvals go to <b>{d.other}</b>. <Link href="/settings#out-of-office" className="underline">Change</Link></div>)}
-      {dl.covering.filter((d) => d.active).map((d) => <div key={d.id} className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 ring-1 ring-brand-200">You&apos;re covering for <b>{d.other}</b> until {d.ends_on}. Their approvals are marked “for {d.other}”.</div>)}
+      {dl.forwarding.filter((d) => d.active).map((d) => <div key={d.id} className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">You&apos;re out of office until {d.ends_on} — {d.forms.length ? `approvals for ${d.forms.map((f) => f.title).join(", ")} go` : "new approvals go"} to <b>{d.other}</b>. <Link href="/settings#out-of-office" className="underline">Change</Link></div>)}
+      {dl.covering.filter((d) => d.active).map((d) => <div key={d.id} className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-900 ring-1 ring-brand-200">You&apos;re covering for <b>{d.other}</b> ({d.forms.length ? d.forms.map((f) => f.title).join(", ") : "all forms"}) until {d.ends_on}. Their approvals are marked “for {d.other}”.</div>)}
       <div className="mb-4 flex gap-1 border-b border-ink-line">
         <Link href="/approvals" className={clsx("tab", tab === "pending" && "tab-active")}>Pending</Link>
         <Link href="/approvals?tab=done" className={clsx("tab", tab === "done" && "tab-active")}>Done</Link>

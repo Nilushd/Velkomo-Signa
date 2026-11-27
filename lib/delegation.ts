@@ -13,8 +13,8 @@ export const TZ = () => process.env.NEXT_PUBLIC_TIMEZONE || "UTC";
 
 export interface Cover { delegationId: string; userId: string; name: string; email: string | null; endsOn: string }
 
-/** Who actually receives approvals meant for `userId` today (null = nobody is covering). */
-export async function coverFor(tx: Sql, userId: string): Promise<Cover | null> {
+/** Who actually receives approvals of `formId` meant for `userId` today (null = nobody is covering). */
+export async function coverFor(tx: Sql, userId: string, formId: string): Promise<Cover | null> {
   let cur = userId; let found: Cover | null = null;
   const seen = new Set([userId]);
   for (let hop = 0; hop < 3; hop++) {
@@ -22,6 +22,8 @@ export async function coverFor(tx: Sql, userId: string): Promise<Cover | null> {
       select d.id, d.to_user_id, u.name, u.email, to_char(d.ends_on, 'YYYY-MM-DD') as ends_on from delegations d join users u on u.id = d.to_user_id and u.active
       where d.from_user_id = ${cur} and d.cancelled_at is null
         and (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on
+        and (not exists (select 1 from delegation_forms df where df.delegation_id = d.id)
+             or exists (select 1 from delegation_forms df where df.delegation_id = d.id and df.form_id = ${formId}))
       order by d.created_at desc limit 1`;
     if (!d || seen.has(d.to_user_id)) break;
     found = { delegationId: d.id, userId: d.to_user_id, name: d.name, email: d.email, endsOn: d.ends_on };
@@ -72,21 +74,28 @@ export async function reassign(tx: Sql, effects: Effect[], approvalId: string, t
 export async function forwardWaiting(tx: Sql, effects: Effect[], delegationId: string) {
   const [d] = await tx<{ id: string; from_user_id: string; ends_on: string; from_name: string }[]>`
     select d.id, d.from_user_id, to_char(d.ends_on, 'DD Mon YYYY') as ends_on, u.name as from_name from delegations d join users u on u.id = d.from_user_id where d.id = ${delegationId}`;
-  const cover = await coverFor(tx, d.from_user_id);
-  if (!cover) return 0;
-  const waiting = await tx<{ id: string }[]>`
-    select a.id from approvals a join submissions s on s.id = a.submission_id
-    where a.approver_user_id = ${d.from_user_id} and a.decision = 'pending' and s.status = 'pending' and s.version = a.version and s.current_level = a.level`;
-  for (const w of waiting) await reassign(tx, effects, w.id, cover, d.from_user_id, cover.delegationId, `${d.from_name} is away until ${d.ends_on}`, "System");
+  const waiting = await tx<{ id: string; form_id: string }[]>`
+    select a.id, s.form_id from approvals a join submissions s on s.id = a.submission_id
+    where a.approver_user_id = ${d.from_user_id} and a.decision = 'pending' and s.status = 'pending' and s.version = a.version and s.current_level = a.level
+      and (not exists (select 1 from delegation_forms df where df.delegation_id = ${delegationId})
+           or s.form_id in (select form_id from delegation_forms df where df.delegation_id = ${delegationId}))`;
+  let moved = 0;
+  for (const w of waiting) {
+    const cover = await coverFor(tx, d.from_user_id, w.form_id);
+    if (!cover) continue;
+    await reassign(tx, effects, w.id, cover, d.from_user_id, cover.delegationId, `${d.from_name} is away until ${d.ends_on}`, "System");
+    moved++;
+  }
   await tx`update delegations set applied_at = now() where id = ${delegationId}`;
-  return waiting.length;
+  return moved;
 }
 
 /** Give back approvals that were forwarded under a delegation and are still waiting (when it is cancelled). */
-export async function returnWaiting(tx: Sql, effects: Effect[], delegationId: string) {
+export async function returnWaiting(tx: Sql, effects: Effect[], delegationId: string, formId?: string) {
   const rows = await tx<{ id: string; on_behalf_of: string; name: string; email: string | null }[]>`
     select a.id, a.on_behalf_of, u.name, u.email from approvals a join submissions s on s.id = a.submission_id join users u on u.id = a.on_behalf_of
-    where a.delegation_id = ${delegationId} and a.decision = 'pending' and s.status = 'pending' and s.version = a.version and s.current_level = a.level`;
+    where a.delegation_id = ${delegationId} and a.decision = 'pending' and s.status = 'pending' and s.version = a.version and s.current_level = a.level
+      and (${formId ?? null}::uuid is null or s.form_id = ${formId ?? null})`;
   for (const r of rows) await reassign(tx, effects, r.id, { userId: r.on_behalf_of, name: r.name, email: r.email }, null, null, `${r.name} is back`, "System");
   return rows.length;
 }
@@ -105,16 +114,29 @@ export async function applyDueDelegations(): Promise<number> {
   return due.length;
 }
 
-export interface DelegationRow { id: string; other: string; starts_on: string; ends_on: string; note: string; active: boolean }
+export interface DelegationRow { id: string; other: string; starts_on: string; ends_on: string; note: string; active: boolean; forms: { id: string; title: string }[] }
 
 /** Current and upcoming delegations for a user: whom they forward to, and whom they cover for. */
 export async function loadDelegations(tx: Sql, userId: string) {
   const q = (dir: "from" | "to") => tx<DelegationRow[]>`
     select d.id, u.name as other, to_char(d.starts_on, 'DD Mon YYYY') as starts_on, to_char(d.ends_on, 'DD Mon YYYY') as ends_on, d.note,
-      (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on as active
+      (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on as active,
+      coalesce((select json_agg(json_build_object('id', f.id, 'title', f.title) order by f.title) from delegation_forms df join forms f on f.id = df.form_id
+        where df.delegation_id = d.id), '[]'::json) as forms
     from delegations d join users u on u.id = ${dir === "from" ? tx`d.to_user_id` : tx`d.from_user_id`}
     where ${dir === "from" ? tx`d.from_user_id` : tx`d.to_user_id`} = ${userId} and d.cancelled_at is null
       and d.ends_on >= (now() at time zone ${TZ()})::date
     order by d.starts_on`;
   return { forwarding: await q("from"), covering: await q("to") };
+}
+
+/** Forms a user can approve (Approval access directly or via a group, or named on a level) — the choices for per-form forwarding. */
+export async function approvableForms(tx: Sql, userId: string) {
+  return tx<{ id: string; title: string }[]>`
+    select distinct f.id, f.title from forms f where f.status <> 'draft' and (
+      exists (select 1 from form_access fa where fa.form_id = f.id and fa.access = 'approve'
+        and (fa.user_id = ${userId} or fa.group_id in (select group_id from group_members where user_id = ${userId})))
+      or exists (select 1 from approval_steps st join approval_step_approvers sa on sa.step_id = st.id where st.form_id = f.id
+        and (sa.user_id = ${userId} or sa.group_id in (select group_id from group_members where user_id = ${userId}))))
+    order by f.title`;
 }

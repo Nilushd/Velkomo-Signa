@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { requireUser, asUser } from "@/lib/auth";
-import { loadDelegations } from "@/lib/delegation";
+import { loadDelegations, approvableForms } from "@/lib/delegation";
 import { DelegationPanel } from "@/components/delegation-panel";
 import { PageHeader } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
@@ -10,9 +10,10 @@ export const metadata = { title: "Settings" };
 
 export default async function Settings() {
   const u = await requireUser();
-  const { people, dl } = await asUser(u, async (tx) => ({
+  const { people, dl, forms } = await asUser(u, async (tx) => ({
     people: await tx<{ id: string; name: string; department: string | null }[]>`select id, name, department from users where active order by name`,
     dl: await loadDelegations(tx, u.id),
+    forms: await approvableForms(tx, u.id),
   }));
   return (
     <div className="max-w-3xl space-y-6">
@@ -30,7 +31,7 @@ export default async function Settings() {
       <section className="card p-5" id="out-of-office">
         <h2 className="font-semibold">Out of office — forward my approvals</h2>
         <p className="mb-4 mt-1 text-sm text-ink-mute">Going on leave? Choose a colleague to approve in your place for those days.</p>
-        <DelegationPanel fromUserId={u.id} self people={people} forwarding={dl.forwarding} covering={dl.covering} />
+        <DelegationPanel fromUserId={u.id} self people={people} forms={forms} forwarding={dl.forwarding} covering={dl.covering} />
       </section>
       <section className="card p-5">
         <h2 className="font-semibold">Install the app</h2>

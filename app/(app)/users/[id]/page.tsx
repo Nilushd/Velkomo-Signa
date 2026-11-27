@@ -8,7 +8,7 @@ import { updateUser, setActive, unlockUser } from "@/app/actions/users";
 import { UserAccessTable, UserGroups, ResetPasswordForm, RoleSwitches } from "./client";
 import { AccessLegend } from "@/components/access-levels";
 import { DelegationPanel } from "@/components/delegation-panel";
-import { loadDelegations } from "@/lib/delegation";
+import { loadDelegations, approvableForms } from "@/lib/delegation";
 
 export const metadata = { title: "User" };
 
@@ -28,7 +28,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
     const groups = await tx<{ id: string; name: string; member: boolean }[]>`
       select g.id, g.name, exists(select 1 from group_members gm where gm.group_id = g.id and gm.user_id = ${id}) as member from groups g order by g.name`;
     const people = await tx<{ id: string; name: string; department: string | null }[]>`select id, name, department from users where active order by name`;
-    return { u, forms, groups, people, dl: await loadDelegations(tx, id) };
+    return { u, forms, groups, people, dl: await loadDelegations(tx, id), approvable: await approvableForms(tx, id) };
   });
   if (!data) notFound();
   const { u } = data;
@@ -54,7 +54,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       <section className="card p-5">
         <h2 className="font-semibold">Out of office</h2>
         <p className="mb-4 mt-1 text-sm text-ink-mute">Forward {u.name}&apos;s approvals to a colleague while they&apos;re on leave.</p>
-        <DelegationPanel fromUserId={u.id} self={u.id === admin.id} people={data.people} forwarding={data.dl.forwarding} covering={data.dl.covering} />
+        <DelegationPanel fromUserId={u.id} self={u.id === admin.id} people={data.people} forms={data.approvable} forwarding={data.dl.forwarding} covering={data.dl.covering} />
       </section>
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-5"><h2 className="mb-3 font-semibold">Groups</h2><UserGroups userId={u.id} groups={data.groups} /></section>
