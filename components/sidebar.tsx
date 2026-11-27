@@ -27,7 +27,7 @@ export function Sidebar({ user, property, counts }: Props) {
     { href: "/users", label: "Users & Groups", icon: Users, show: user.isAdmin },
     { href: "/notifications", label: "Notifications", icon: Bell, show: true, count: counts.unread },
     { href: "/settings", label: "Settings", icon: Settings, show: true },
-    { href: "/super", label: "Properties", icon: Building2, show: user.isSuper },
+    { href: "/platform", label: "Platform", icon: Building2, show: user.isSuper },
   ].filter((i) => i.show);
   const active = (href: string) => (href === "/" ? path === "/" : path === href || (path.startsWith(href + "/") && !(href === "/forms" && path.startsWith("/forms/studio"))));
 

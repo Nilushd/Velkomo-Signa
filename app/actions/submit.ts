@@ -1,4 +1,5 @@
 "use server";
+import { propertyState, isOpen } from "@/lib/subscription";
 import { rootSql, tenant } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth";
 import { formAccess, canSubmit, canApprove } from "@/lib/access";
@@ -33,6 +34,7 @@ function guessEmail(schema: Field[], data: Record<string, unknown>) {
 export async function submitForm(code: string, raw: Record<string, unknown>, captcha?: string | null): Promise<Res> {
   const [form] = await rootSql()<FormRow[]>`select * from forms where short_code = ${code}`;
   if (!form || form.status !== "published") return { ok: false, error: "This form is not accepting submissions." };
+  if (!isOpen(await propertyState(form.property_id))) return { ok: false, error: "This form is not accepting submissions." };
   const s = await getSession();
   const user: SessionUser | null = s && s.property_id === form.property_id && !s.must_change_password ? s : null;
   const access = await tenant({ propertyId: form.property_id, userId: null }, (tx) => formAccess(tx, user, form));
@@ -130,6 +132,7 @@ export async function decideByToken(token: string, decision: "approved" | "rejec
   const t = await resolveActionToken(token);
   if (!t) return { ok: false as const, error: "This link is not valid." };
   if (t.expires_at < new Date()) return { ok: false as const, error: "This link has expired. Please open the request in the app." };
+  if (!isOpen(await propertyState(t.property_id))) return { ok: false as const, error: "This property's Velkomo Signa account is not active right now." };
   const [ap] = await rootSql()<{ approver_user_id: string; name: string; decision: string; closed_note: string | null }[]>`
     select a.approver_user_id, u.name, a.decision, a.closed_note from approvals a join users u on u.id = a.approver_user_id where a.id = ${t.approval_id}`;
   if (t.used_at) {

@@ -29,6 +29,8 @@ export interface SessionUser {
   property_code: string;
   property_name: string;
   property_logo: string | null;
+  subscription_ends: string | null;
+  subscription_days_left: number | null;
 }
 
 export function hashPassword(pw: string) {
@@ -47,10 +49,10 @@ export const TWOFA_COOKIE = "signa_2fa";
 export async function login(propertyCode: string, username: string, password: string):
   Promise<{ ok: true; mustChange: boolean; twoFactor: boolean } | { ok: false; error: string }> {
   const sql = rootSql();
-  const [u] = await sql<{ id: string; password_hash: string; locked_until: Date | null; failed_logins: number; must_change_password: boolean; totp_on: boolean }[]>`
-    select u.id, u.password_hash, u.locked_until, u.failed_logins, u.must_change_password, (u.totp_enabled_at is not null and u.totp_secret is not null) as totp_on
+  const [u] = await sql<{ id: string; property_id: string; password_hash: string; locked_until: Date | null; failed_logins: number; must_change_password: boolean; totp_on: boolean }[]>`
+    select u.id, u.property_id, u.password_hash, u.locked_until, u.failed_logins, u.must_change_password, (u.totp_enabled_at is not null and u.totp_secret is not null) as totp_on
     from users u join properties p on p.id = u.property_id
-    where lower(p.property_code) = lower(${propertyCode.trim()}) and p.active
+    where lower(p.property_code) = lower(${propertyCode.trim()})
       and lower(u.username) = lower(${username.trim()}) and u.active`;
   if (!u) {
     await bcrypt.compare(password, DUMMY_HASH); // keep timing similar
@@ -69,6 +71,10 @@ export async function login(propertyCode: string, username: string, password: st
     return { ok: false, error: LOGIN_ERROR };
   }
   await sql`update users set failed_logins = 0, locked_until = null where id = ${u.id}`;
+  // Only someone with the right password learns that the hotel is suspended or its subscription ended.
+  const { propertyState, isOpen, closedMessage } = await import("./subscription");
+  const ps = await propertyState(u.property_id);
+  if (!isOpen(ps)) return { ok: false, error: closedMessage(ps) };
   if (u.totp_on) {
     // password is right; the 6-digit code comes next (10 minutes, 5 tries)
     const token = randomToken();
@@ -149,9 +155,11 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   const [u] = await rootSql()<SessionUser[]>`
     select u.id, u.property_id, u.username, u.name, u.email, u.department, u.is_admin, u.is_super_admin,
            u.can_build_forms, u.can_use_studio, u.can_use_ai, u.email_approvals, (u.totp_enabled_at is not null) as totp_enabled, u.must_change_password,
-           p.property_code, p.name as property_name, p.logo_file_id as property_logo
+           p.property_code, p.name as property_name, p.logo_file_id as property_logo,
+           to_char(p.subscription_ends, 'YYYY-MM-DD') as subscription_ends, (p.subscription_ends - current_date)::int as subscription_days_left
     from sessions s join users u on u.id = s.user_id join properties p on p.id = u.property_id
-    where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active`;
+    where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active
+      and (p.subscription_ends is null or p.subscription_ends >= current_date)`;
   return u ?? null;
 });
 

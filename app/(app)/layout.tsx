@@ -1,5 +1,6 @@
 import { requireUser, asUser } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
+import { fmtDay } from "@/lib/subscription";
 
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const u = await requireUser();
@@ -19,7 +20,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         counts={{ approvals: counts.approvals, unread: counts.unread }}
       />
       <main className="min-w-0 flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
-        <div className="mx-auto max-w-6xl">{children}</div>
+        <div className="mx-auto max-w-6xl">
+          {u.is_admin && !u.is_super_admin && u.subscription_days_left !== null && u.subscription_days_left <= 14 && (
+            <div className="mb-5 rounded-lg bg-amber-50 px-4 py-3 text-sm text-amber-900 ring-1 ring-amber-200" role="status">
+              <b>Your Velkomo Signa subscription {u.subscription_days_left === 0 ? "ends today" : `ends in ${u.subscription_days_left} day${u.subscription_days_left === 1 ? "" : "s"}`}</b> ({fmtDay(u.subscription_ends)}).
+              {" "}After that, staff can&apos;t sign in and public forms close. Please contact Velkomo to renew — your data is kept.
+            </div>)}
+          {children}
+        </div>
       </main>
     </div>
   );

@@ -6,6 +6,7 @@ import { formAccess, canSubmit } from "@/lib/access";
 import type { FormRow } from "@/lib/types";
 import { PublicShell, Notice } from "@/components/public-shell";
 import { FillForm } from "./fill-form";
+import { propertyState, isOpen } from "@/lib/subscription";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -23,6 +24,7 @@ export default async function FormPage({ params }: { params: Promise<{ code: str
     return <PublicShell><Notice title="Form not available">This form doesn&apos;t exist or hasn&apos;t been published yet.</Notice></PublicShell>;
   }
   const bg = form.theme.background;
+  if (!isOpen(await propertyState(form.property_id))) return <PublicShell background={bg}><Notice title={form.title}>This form isn&apos;t available right now.</Notice></PublicShell>;
   if (form.visibility !== "public") {
     if (!s) redirect(`/login?next=/f/${code}`);
     if (s.must_change_password) redirect("/change-password");

@@ -6,6 +6,7 @@ import { PublicShell, Notice } from "@/components/public-shell";
 import { Answers, Progress, SummaryCard } from "@/components/submission-view";
 import { DecisionForm } from "@/components/decision-form";
 import { decideByToken } from "@/app/actions/submit";
+import { propertyState, isOpen } from "@/lib/subscription";
 
 export const metadata = { title: "Approve request", robots: { index: false } };
 
@@ -20,7 +21,8 @@ export default async function ActionPage({ params, searchParams }: { params: Pro
   const detail = await asSystem(t.property_id, (tx) => loadDetail(tx, ap.submission_id));
   if (!detail) return <PublicShell><Notice title="Request not found" /></PublicShell>;
   let blocked: string | null = null;
-  if (t.used_at || ap.decision !== "pending") {
+  if (!isOpen(await propertyState(t.property_id))) blocked = "This property's Velkomo Signa account is not active right now.";
+  else if (t.used_at || ap.decision !== "pending") {
     blocked = ap.decision === "closed" ? `Already ${ap.closed_note ? ap.closed_note.charAt(0).toLowerCase() + ap.closed_note.slice(1) : "handled"}.` : `You already ${ap.decision} this request.`;
   } else if (t.expires_at < new Date()) blocked = "This link has expired. Please open the request in the app.";
   return (

@@ -366,7 +366,7 @@ export async function sendReminders(): Promise<number> {
     join submissions s on s.id = a.submission_id and s.status = 'pending' and s.version = a.version and s.current_level = a.level
     join approval_steps st on st.form_id = s.form_id and st.level = a.level and st.reminder_days is not null
     join users u on u.id = a.approver_user_id and u.active
-    join properties p on p.id = a.property_id and p.active
+    join properties p on p.id = a.property_id and p.active and (p.subscription_ends is null or p.subscription_ends >= current_date)
     where a.decision = 'pending'
       and coalesce(a.reminded_at, a.created_at) < now() - make_interval(days => st.reminder_days)`;
   const effects: Effect[] = [];
