@@ -59,7 +59,7 @@ export default async function Submissions({ searchParams }: { searchParams: Prom
             <thead><tr><th>Ref no</th><th>Form</th><th>Date</th><th>Submitter</th><th>Status</th><th>Level</th></tr></thead>
             <tbody>{rows.map((r) => (
               <tr key={r.id} className="hover:bg-ink-wash/60">
-                <td><Link href={`/requests/${r.id}`} className="font-mono font-medium text-brand-700 hover:underline">{r.ref_no}</Link>{r.version > 1 && <span className="ml-1 text-xs text-ink-mute">v{r.version}</span>}</td>
+                <td><Link href={`/submissions/${r.id}`} className="font-mono font-medium text-brand-700 hover:underline">{r.ref_no}</Link>{r.version > 1 && <span className="ml-1 text-xs text-ink-mute">v{r.version}</span>}</td>
                 <td>{r.title}</td>
                 <td className="whitespace-nowrap text-ink-mute">{fmtDate(r.created_at)}</td>
                 <td>{r.submitter}</td>
