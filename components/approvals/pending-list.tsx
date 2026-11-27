@@ -16,26 +16,36 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
   const [formFilter, setFormFilter] = useState("");
   const [sel, setSel] = useState<Set<string>>(new Set());
   const [ask, setAsk] = useState<null | "approved" | "rejected">(null);
+  const [targets, setTargets] = useState<string[]>([]);   // ids the dialog / quick action applies to
+  const [busyIds, setBusyIds] = useState<Set<string>>(new Set());
   const [comment, setComment] = useState("");
   const [result, setResult] = useState<{ kind: "success" | "warn" | "error"; text: string; details?: string[] } | null>(null);
   const [pending, start] = useTransition();
   const shown = rows.filter((r) => !formFilter || r.form_id === formFilter);
   const allShown = shown.length > 0 && shown.every((r) => sel.has(r.id));
   const chosen = rows.filter((r) => sel.has(r.id));
+  const dialogRows = rows.filter((r) => targets.includes(r.id));
   const toggle = (id: string) => setSel((s) => { const n = new Set(s); if (n.has(id)) n.delete(id); else n.add(id); return n; });
 
-  function run() {
-    if (!ask) return;
-    const ids = chosen.map((r) => r.id);
+  /** Decide now. Approvals need no comment, so "Approve" runs straight away; rejections come through the dialog. */
+  function decideNow(ids: string[], decision: "approved" | "rejected", note: string) {
+    if (!ids.length) return;
+    setBusyIds(new Set(ids)); setResult(null);
     start(async () => {
-      const r = await decideMany(ids, ask, comment);
+      const r = await decideMany(ids, decision, note);
+      setBusyIds(new Set());
       if ("error" in r && r.error) { setResult({ kind: "error", text: r.error }); return; }
-      const verb = ask === "approved" ? "approved" : "rejected";
-      setResult({ kind: r.skipped.length ? "warn" : "success", text: `${r.done} ${verb}${r.skipped.length ? ` · ${r.skipped.length} skipped` : ""}.`,
+      const refs = rows.filter((x) => ids.includes(x.id)).map((x) => x.ref_no);
+      const what = r.done === 1 && ids.length === 1 ? refs[0] : `${r.done}`;
+      setResult({ kind: r.skipped.length ? "warn" : "success", text: `${what} ${decision === "approved" ? "approved" : "rejected"}${r.skipped.length ? ` · ${r.skipped.length} skipped` : ""}.`,
         details: r.skipped.map((s) => `${s.ref}: ${s.reason}`) });
-      setAsk(null); setComment(""); setSel(new Set()); router.refresh();
+      setAsk(null); setComment(""); setTargets([]);
+      setSel((s) => { const n = new Set(s); ids.forEach((i) => n.delete(i)); return n; });
+      router.refresh();
     });
   }
+  const openDialog = (decision: "approved" | "rejected", ids: string[]) => { setTargets(ids); setAsk(decision); setResult(null); };
+  function run() { if (ask) decideNow(targets, ask, comment); }
 
   return (
     <div className="space-y-3">
@@ -66,31 +76,39 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
             </div>
             <span className="text-xs text-ink-mute">{r.created}</span>
           </Link>
+          <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
+            <button className="btn-sm btn bg-[#047857] text-white hover:bg-[#065F46]" disabled={pending} onClick={() => decideNow([r.id], "approved", "")} aria-label={`Approve ${r.ref_no}`}>
+              <Check className="h-3.5 w-3.5" /> {busyIds.has(r.id) ? "…" : "Approve"}</button>
+            <button className="btn-sm btn border border-red-200 bg-white text-red-700 hover:bg-red-50" disabled={pending} onClick={() => openDialog("rejected", [r.id])} aria-label={`Reject ${r.ref_no}`}>
+              <X className="h-3.5 w-3.5" /> Reject</button>
+          </div>
         </li>))}</ul>
       </>}
 
       {chosen.length > 0 && !ask && (
         <div className="sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-brand-900 px-4 py-3 text-white shadow-xl" role="region" aria-label="Selected approvals">
           <span className="mr-auto text-sm font-medium">{chosen.length} selected{chosen.length > 100 ? " (max 100 at a time)" : ""}</span>
-          <button className="btn bg-[#047857] text-white hover:bg-[#065F46]" onClick={() => { setAsk("approved"); setResult(null); }}><Check className="h-4 w-4" /> Approve selected</button>
-          <button className="btn bg-[#D92D20] text-white hover:bg-[#B42318]" onClick={() => { setAsk("rejected"); setResult(null); }}><X className="h-4 w-4" /> Reject selected</button>
+          <button className="btn bg-[#047857] text-white hover:bg-[#065F46]" disabled={pending} onClick={() => decideNow(chosen.slice(0, 100).map((r) => r.id), "approved", "")}>
+            <Check className="h-4 w-4" /> {pending ? "Approving…" : `Approve ${chosen.length}`}</button>
+          <button className="btn bg-[#D92D20] text-white hover:bg-[#B42318]" disabled={pending} onClick={() => openDialog("rejected", chosen.slice(0, 100).map((r) => r.id))}><X className="h-4 w-4" /> Reject {chosen.length}</button>
+          <button className="btn px-2 text-sm text-white/80 underline-offset-2 hover:text-white hover:underline" disabled={pending} onClick={() => openDialog("approved", chosen.slice(0, 100).map((r) => r.id))}>Approve with comment…</button>
           <button className="btn px-2 text-white/80 hover:text-white" onClick={() => setSel(new Set())} aria-label="Clear selection"><X className="h-4 w-4" /></button>
         </div>)}
 
       {ask && (
         <div className="fixed inset-0 z-50 flex items-end justify-center bg-ink/50 backdrop-blur-sm sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-label="Confirm bulk decision" onClick={() => !pending && setAsk(null)}>
           <div className="max-h-[90vh] w-full max-w-lg overflow-auto rounded-t-2xl bg-white p-5 shadow-xl sm:rounded-2xl" onClick={(e) => e.stopPropagation()}>
-            <h2 className="text-lg font-bold">{ask === "approved" ? "Approve" : "Reject"} {chosen.length} request{chosen.length > 1 ? "s" : ""}?</h2>
-            <p className="mt-1 text-sm text-ink-mute">Each one is recorded separately in its history, with your name and the time. {ask === "rejected" ? "Requesters are told and can edit and resubmit." : "Each moves to its next level, or is fully approved."}</p>
+            <h2 className="text-lg font-bold">{ask === "approved" ? "Approve" : "Reject"} {dialogRows.length === 1 ? dialogRows[0].ref_no : `${dialogRows.length} requests`}</h2>
+            <p className="mt-1 text-sm text-ink-mute">{dialogRows.length > 1 ? "Each one is recorded separately in its history, with your name and the time." : "Recorded in its history with your name and the time."} {ask === "rejected" ? (dialogRows.length > 1 ? "Requesters are told and can edit and resubmit." : "The requester is told and can edit and resubmit.") : (dialogRows.length > 1 ? "Each moves to its next level, or is fully approved." : "It moves to the next level, or is fully approved.")}</p>
             <ul className="mt-3 max-h-44 overflow-auto rounded-lg border border-ink-line text-sm">
-              {chosen.slice(0, 100).map((r) => <li key={r.id} className="flex justify-between gap-3 border-b border-ink-line/70 px-3 py-1.5 last:border-0"><span className="font-mono">{r.ref_no}</span><span className="truncate text-ink-mute">{r.title} · {r.submitter}</span></li>)}
+              {dialogRows.map((r) => <li key={r.id} className="flex justify-between gap-3 border-b border-ink-line/70 px-3 py-1.5 last:border-0"><span className="font-mono">{r.ref_no}</span><span className="truncate text-ink-mute">{r.title} · {r.submitter}</span></li>)}
             </ul>
-            <label className="label mt-4" htmlFor="bulk-comment">Comment {ask === "rejected" ? <span className="text-red-600">(required — sent to every requester)</span> : <span className="font-normal text-ink-mute">(optional — added to each)</span>}</label>
-            <textarea id="bulk-comment" rows={3} className="input" value={comment} onChange={(e) => setComment(e.target.value)} />
+            <label className="label mt-4" htmlFor="bulk-comment">{ask === "rejected" ? "Reason" : "Comment"} {ask === "rejected" ? <span className="text-red-600">(required — sent to the requester{dialogRows.length > 1 ? "s" : ""})</span> : <span className="font-normal text-ink-mute">(optional — added to each)</span>}</label>
+            <textarea id="bulk-comment" rows={3} className="input" autoFocus value={comment} onChange={(e) => setComment(e.target.value)} placeholder={ask === "rejected" ? "Tell the requester what to change" : ""} />
             <div className="mt-4 flex justify-end gap-2">
               <button className="btn-ghost" disabled={pending} onClick={() => setAsk(null)}>Cancel</button>
               <button className={ask === "approved" ? "btn-success" : "btn-danger"} disabled={pending || (ask === "rejected" && !comment.trim())} onClick={run}>
-                {pending ? "Working…" : `${ask === "approved" ? "Approve" : "Reject"} ${chosen.length}`}</button>
+                {pending ? "Working…" : `${ask === "approved" ? "Approve" : "Reject"}${dialogRows.length > 1 ? ` ${dialogRows.length}` : ""}`}</button>
             </div>
           </div>
         </div>)}
