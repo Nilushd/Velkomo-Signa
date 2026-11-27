@@ -162,7 +162,7 @@ export function Studio({ aiEnabled, aiConfigured, propertyName, propertyLogo, us
           {[
             { icon: FileSpreadsheet, t: "Excel", d: "A laid-out form (labels with blank cells) or a table whose column headings become fields." },
             { icon: FileText, t: "PDF", d: "Fillable PDFs use their real form fields; typed PDFs are read line by line — labels, ____ blanks, ☐ boxes, sections." },
-            { icon: Sparkles, t: aiEnabled ? "AI design (on)" : "AI design (off)", d: aiEnabled ? "Reads photos and scans too, and can redo any design with AI." : aiConfigured ? "Not switched on for your account — ask your admin (Users → Feature access)." : "Add ANTHROPIC_API_KEY on the server to read photos and scans." },
+            { icon: Sparkles, t: aiEnabled ? "AI design (on)" : "AI design (off)", d: aiEnabled ? "Reads photos and scans too, and can redo any design with AI." : aiConfigured ? "Not available for your account — ask your admin." : "Add ANTHROPIC_API_KEY on the server to read photos and scans." },
           ].map((c) => (
             <div key={c.t} className="card p-4"><c.icon className="mb-2 h-5 w-5 text-brand-600" /><p className="font-semibold">{c.t}</p><p className="mt-1 text-sm text-ink-mute">{c.d}</p></div>))}
         </div>
@@ -273,7 +273,7 @@ export function Studio({ aiEnabled, aiConfigured, propertyName, propertyLogo, us
             <div className="space-y-3">
               <div>
                 <p className="font-semibold">Approval levels &amp; approvers</p>
-                <p className="text-sm text-ink-mute">{draft.steps.length ? "Suggested from the sign-off part of your sample — pick who approves each level." : "None found in the sample — add levels if the form needs approval."} Approvers get Review access automatically.</p>
+                <p className="text-sm text-ink-mute">{draft.steps.length ? "Suggested from the sign-off part of your sample — pick who approves each level." : "None found in the sample — add levels if the form needs approval."} Approvers get Approval access automatically.</p>
               </div>
               <LevelsEditor steps={levels} setSteps={setLevels} options={approverOptions(users, groups, [])} />
             </div>

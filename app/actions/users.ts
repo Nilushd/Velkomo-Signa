@@ -14,6 +14,8 @@ const userSchema = z.object({
   department: z.string().trim().max(120).optional(),
 });
 
+const LEVELS = ["general", "review", "approve"] as const;
+
 export async function createUser(_: FormState, fd: FormData): Promise<FormState> {
   const admin = await requireAdmin();
   const p = userSchema.safeParse(Object.fromEntries(fd));
@@ -21,12 +23,18 @@ export async function createUser(_: FormState, fd: FormData): Promise<FormState>
   const pw = String(fd.get("password") ?? "");
   const prob = passwordProblem(pw);
   if (prob) return { error: `Temporary password: ${prob}` };
+  const designer = fd.get("can_build_forms") === "on";
+  // form access chosen on the Add user page: fields named access_<formId>
+  const access = [...fd.entries()].filter(([k, v]) => k.startsWith("access_") && (LEVELS as readonly string[]).includes(String(v)))
+    .map(([k, v]) => ({ formId: k.slice(7), level: String(v) })).filter((x) => /^[0-9a-f-]{36}$/.test(x.formId));
   let id: string;
   try {
     id = await asUser(admin, async (tx) => {
       const [u] = await tx<{ id: string }[]>`insert into users (property_id, username, name, email, department, password_hash, is_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
         values (${admin.property_id}, ${p.data.username}, ${p.data.name}, ${p.data.email || null}, ${p.data.department || null}, ${await hashPassword(pw)},
-          ${fd.get("is_admin") === "on"}, ${fd.get("can_build_forms") === "on"}, ${fd.get("can_use_studio") === "on"}, ${fd.get("can_use_ai") === "on"}, true) returning id`;
+          ${fd.get("is_admin") === "on"}, ${designer}, ${designer}, ${designer}, true) returning id`;
+      for (const a of access)
+        await tx`insert into form_access (property_id, form_id, user_id, access) select ${admin.property_id}, id, ${u.id}, ${a.level} from forms where id = ${a.formId}`;
       return u.id;
     });
   } catch (e) {
@@ -40,12 +48,9 @@ export async function updateUser(userId: string, _: FormState, fd: FormData): Pr
   const admin = await requireAdmin();
   const p = userSchema.safeParse(Object.fromEntries(fd));
   if (!p.success) return { error: p.error.issues[0].message };
-  const isAdmin = fd.get("is_admin") === "on";
-  if (userId === admin.id && !isAdmin) return { error: "You can't remove your own admin rights." };
   try {
     await asUser(admin, (tx) => tx`update users set username = ${p.data.username}, name = ${p.data.name}, email = ${p.data.email || null},
-      department = ${p.data.department || null}, is_admin = ${isAdmin}, can_build_forms = ${fd.get("can_build_forms") === "on"},
-      can_use_studio = ${fd.get("can_use_studio") === "on"}, can_use_ai = ${fd.get("can_use_ai") === "on"} where id = ${userId}`);
+      department = ${p.data.department || null} where id = ${userId}`);
   } catch (e) {
     if (String(e).includes("users_username_uq")) return { error: "That username is already used in this property." };
     throw e;
@@ -54,19 +59,19 @@ export async function updateUser(userId: string, _: FormState, fd: FormData): Pr
   return { ok: "Saved." };
 }
 
-const FEATURES = { build: "can_build_forms", studio: "can_use_studio", ai: "can_use_ai" } as const;
-export type Feature = keyof typeof FEATURES;
-
-/** Switch one feature on/off for one user (Feature access table). Turning off the designer also turns off Studio and AI. */
-export async function setFeature(userId: string, feature: Feature, on: boolean) {
+/**
+ * User permissions that apply to the whole property (saved immediately):
+ *  admin    — manage users, see every form and submission
+ *  designer — create and edit forms, including Form Studio and AI design
+ */
+export async function setRole(userId: string, role: "admin" | "designer", on: boolean) {
   const admin = await requireAdmin();
-  await asUser(admin, async (tx) => {
-    if (feature === "build") await tx`update users set can_build_forms = ${on}, can_use_studio = can_use_studio and ${on}, can_use_ai = can_use_ai and ${on} where id = ${userId}`;
-    else if (feature === "studio") await tx`update users set can_use_studio = ${on}, can_use_ai = can_use_ai and ${on}, can_build_forms = can_build_forms or ${on} where id = ${userId}`;
-    else await tx`update users set can_use_ai = ${on}, can_use_studio = can_use_studio or ${on}, can_build_forms = can_build_forms or ${on} where id = ${userId}`;
-  });
-  revalidatePath("/users/access");
+  if (role === "admin" && userId === admin.id && !on) return { error: "You can't remove your own admin rights." };
+  await asUser(admin, (tx) => role === "admin"
+    ? tx`update users set is_admin = ${on} where id = ${userId}`
+    : tx`update users set can_build_forms = ${on}, can_use_studio = ${on}, can_use_ai = ${on} where id = ${userId}`);
   revalidatePath(`/users/${userId}`);
+  revalidatePath("/users");
   return { ok: true };
 }
 
@@ -98,12 +103,28 @@ export async function unlockUser(userId: string) {
 }
 
 /** Per-user form access from the user's page: one dropdown per form. */
-export async function setUserFormAccess(userId: string, formId: string, access: "none" | "general" | "review") {
+export async function setUserFormAccess(userId: string, formId: string, access: "none" | "general" | "review" | "approve") {
   const admin = await requireAdmin();
+  if (!["none", "general", "review", "approve"].includes(access)) return { ok: false, removed: [] as string[] };
   const removed = await asUser(admin, async (tx) => {
     await tx`delete from form_access where form_id = ${formId} and user_id = ${userId}`;
     if (access !== "none") await tx`insert into form_access (property_id, form_id, user_id, access) values (${admin.property_id}, ${formId}, ${userId}, ${access})`;
     return pruneApprovers(tx, formId);
+  });
+  revalidatePath(`/users/${userId}`);
+  return { ok: true, removed };
+}
+
+/** Give one user the same access level on every form (the "Apply to all forms" shortcut). */
+export async function setUserAccessAllForms(userId: string, access: "none" | "general" | "review" | "approve") {
+  const admin = await requireAdmin();
+  if (!["none", "general", "review", "approve"].includes(access)) return { ok: false, removed: [] as string[] };
+  const removed = await asUser(admin, async (tx) => {
+    await tx`delete from form_access where user_id = ${userId}`;
+    if (access !== "none") await tx`insert into form_access (property_id, form_id, user_id, access) select ${admin.property_id}, id, ${userId}, ${access} from forms`;
+    const out: string[] = [];
+    for (const f of await tx<{ id: string }[]>`select id from forms`) out.push(...(await pruneApprovers(tx, f.id)));
+    return [...new Set(out)];
   });
   revalidatePath(`/users/${userId}`);
   return { ok: true, removed };

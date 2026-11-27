@@ -115,8 +115,9 @@ export async function requireAdmin() {
 
 /** Feature access: admins always; others when the admin switched it on for them. */
 export const canBuild = (u: SessionUser) => u.is_admin || u.can_build_forms;
-export const canStudio = (u: SessionUser) => u.is_admin || (u.can_build_forms && u.can_use_studio);
-export const canAi = (u: SessionUser) => !!process.env.ANTHROPIC_API_KEY && (u.is_admin || (canStudio(u) && u.can_use_ai));
+/** One permission — Form designer — covers the builder, Form Studio and (when the server has a key) AI design. */
+export const canStudio = canBuild;
+export const canAi = (u: SessionUser) => !!process.env.ANTHROPIC_API_KEY && canBuild(u);
 
 export async function requireStudio() {
   const u = await requireUser();

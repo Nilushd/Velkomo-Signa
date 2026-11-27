@@ -18,7 +18,7 @@ export default async function EditForm({ params, searchParams }: { params: Promi
       select id, name, username, department, email from users where active order by name`;
     const groups = await tx<{ id: string; name: string; members: number }[]>`
       select g.id, g.name, (select count(*)::int from group_members gm where gm.group_id = g.id) as members from groups g order by g.name`;
-    const access = await tx<{ user_id: string | null; group_id: string | null; access: "general" | "review" }[]>`
+    const access = await tx<{ user_id: string | null; group_id: string | null; access: "general" | "review" | "approve" }[]>`
       select user_id, group_id, access from form_access where form_id = ${id}`;
     const steps = await tx<{ id: string; level: number; name: string; channel: "email" | "app" | "both"; reminder_days: number | null }[]>`
       select id, level, name, channel, reminder_days from approval_steps where form_id = ${id} order by level`;

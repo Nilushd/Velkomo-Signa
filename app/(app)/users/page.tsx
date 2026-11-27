@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { requireAdmin, asUser } from "@/lib/auth";
 import { PageHeader } from "@/components/ui";
-import { UserPlus, Users, ToggleRight } from "lucide-react";
+import { UserPlus, Users } from "lucide-react";
 
 export const metadata = { title: "Users & Groups" };
 
@@ -18,7 +18,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
   return (
     <>
       <PageHeader title="Users & Groups" subtitle={`${users.length} users in ${admin.property_name}`}
-        actions={<><Link href="/users/access" className="btn-secondary"><ToggleRight className="h-4 w-4" /> Feature access</Link><Link href="/users/groups" className="btn-secondary"><Users className="h-4 w-4" /> Groups</Link><Link href="/users/new" className="btn-primary"><UserPlus className="h-4 w-4" /> Add user</Link></>} />
+        actions={<><Link href="/users/groups" className="btn-secondary"><Users className="h-4 w-4" /> Groups</Link><Link href="/users/new" className="btn-primary"><UserPlus className="h-4 w-4" /> Add user</Link></>} />
       <form className="mb-4"><input name="q" defaultValue={q ?? ""} className="input max-w-sm" placeholder="Search name, username, department…" aria-label="Search users" /></form>
       <div className="card overflow-x-auto">
         <table className="table">
@@ -29,7 +29,7 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
               <td className="font-mono text-xs">{u.username}</td>
               <td className="text-ink-soft">{u.department ?? "—"}</td>
               <td className="text-ink-soft">{u.groups ?? "—"}</td>
-              <td>{u.is_admin ? <span className="badge bg-brand-50 text-brand-700">Admin</span> : u.can_build_forms ? <span className="badge bg-cyan-50 text-cyan-800">Form owner</span> : <span className="text-ink-mute">User</span>}</td>
+              <td>{u.is_admin ? <span className="badge bg-brand-50 text-brand-700">Admin</span> : u.can_build_forms ? <span className="badge bg-cyan-50 text-cyan-800">Form designer</span> : <span className="text-ink-mute">User</span>}</td>
               <td>{!u.active ? <span className="badge bg-zinc-100 text-zinc-600">Inactive</span> : u.locked ? <span className="badge bg-red-50 text-red-700">Locked</span> : u.must_change_password ? <span className="badge bg-amber-50 text-amber-800">Temp password</span> : <span className="badge bg-emerald-50 text-emerald-700">Active</span>}</td>
             </tr>))}</tbody>
         </table>

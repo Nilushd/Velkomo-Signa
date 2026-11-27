@@ -9,7 +9,7 @@ import { randomToken, sha256, verifyCode } from "./crypto";
 import { emailLayout } from "./email";
 import { summaryRows } from "./format";
 import { appUrl } from "./env";
-import { reviewerIds } from "./access";
+import { approverIds } from "./access";
 import { runEffects, type Effect } from "./effects";
 import type { FormRow, SubmissionRow } from "./types";
 
@@ -42,7 +42,7 @@ async function loadSteps(tx: Sql, formId: string) {
   return tx<StepRow[]>`select id, level, name, channel, reminder_days from approval_steps where form_id = ${formId} order by level`;
 }
 
-/** Users of a level (groups expanded), active, and still holding Review access on the form. */
+/** Users of a level (groups expanded), active, and still holding Approval access on the form. */
 async function levelApprovers(tx: Sql, stepId: string, formId: string) {
   const rows = await tx<{ id: string; name: string; email: string | null }[]>`
     select distinct u.id, u.name, u.email from users u
@@ -51,7 +51,7 @@ async function levelApprovers(tx: Sql, stepId: string, formId: string) {
       union
       select gm.user_id from approval_step_approvers sa join group_members gm on gm.group_id = sa.group_id
       where sa.step_id = ${stepId})`;
-  const allowed = await reviewerIds(tx, formId);
+  const allowed = await approverIds(tx, formId);
   return rows.filter((r) => allowed.has(r.id));
 }
 
@@ -87,7 +87,7 @@ async function startLevel(ctx: Ctx, form: FormRow, sub: SubmissionRow, level: nu
   await tx`update submissions set current_level = ${step.level}, updated_at = now() where id = ${sub.id}`;
   sub.current_level = step.level;
   if (people.length === 0) {
-    await audit(tx, sub, { userId: null, name: "System", via: "system" }, "level_skipped", { level: step.level, step: step.name, reason: "no approvers with review access" });
+    await audit(tx, sub, { userId: null, name: "System", via: "system" }, "level_skipped", { level: step.level, step: step.name, reason: "no approvers with Approval access" });
     return startLevel(ctx, form, sub, step.level + 1, steps);
   }
   for (const p of people) {

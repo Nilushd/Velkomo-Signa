@@ -26,7 +26,7 @@ export default async function FormsPage({ searchParams }: { searchParams: Promis
           <Link href="/forms/new" className="btn-secondary"><Plus className="h-4 w-4" /> Blank form</Link>
           {canStudio(u) && <Link href="/forms/studio" className="btn-primary"><Wand2 className="h-4 w-4" /> Design from a sample</Link>}
         </>} />
-      {denied === "studio" && <div className="mb-4"><Alert kind="warn">Form Studio isn&apos;t switched on for your account. Ask your admin (Users &amp; Groups → Feature access).</Alert></div>}
+      {denied === "studio" && <div className="mb-4"><Alert kind="warn">Form Studio needs the Form designer permission. Ask your admin (Users &amp; Groups → the person → Permissions).</Alert></div>}
       {forms.length === 0 ? <Empty title="No forms yet">Open Form Studio and drop in a sample — an Excel sheet, a PDF or a photo of your paper form — or start from a blank form.</Empty> :
         <div className="card overflow-x-auto">
           <table className="table">

@@ -10,8 +10,7 @@ Form builder and approval workflow for properties. People design a form (from sc
 |---|---|
 | **Login** | Property code + username + password · show password · remember property code · one generic error · 5 failed tries lock the account for 15 min · forced password change on first login · forgot-password e-mail (or "contact your admin") |
 | **Multi-property** | Every table carries `property_id`; Postgres Row Level Security isolates properties. Super Admin creates properties and their first Admin |
-| **Feature access** | Admin switches **Form designer**, **Form Studio** and **AI design** on or off per person — on the user's page or in one *Feature access* table (Users & Groups → Feature access). Admins always have all three |
-| **Users & groups** | Admin creates users (username, temp password, name, department, optional e-mail), edits, deactivates, resets passwords, unlocks, groups users, and sets **No / General / Review** access per form from the user's page |
+| **Users & permissions** | Admin creates users (username, temp password, name, department, optional e-mail), edits, deactivates, resets passwords, unlocks, groups users, and sets **No / General / Review** access per form from the user's page |
 | **Form builder** | Drag-and-drop field list · text, long text, number, date, dropdown, radio, checkbox, e-mail, phone, file upload, signature, section heading · label / required / placeholder / help / options · desktop/mobile preview · draft → publish |
 | **Header & branding** | Use the **hotel logo** (set once in Settings → Property), upload a form-specific logo, or none · logo position (left / centre / right) and size · show the hotel name · document-control **form code** (e.g. `HR-F-012 Rev 2`) · header colour, background, 3 fonts · thank-you message · print footer |
 | **Attachments** | File fields can take one file or **several (up to 2–20)**; one click adds an "Attachments section" · PDF, images, Word, Excel, CSV · 10 MB each · shown as download links to reviewers and listed on the printout |
@@ -40,6 +39,8 @@ Two deliberate simplifications versus the original plan, both easy to change lat
 ### How isolation works
 
 Every request runs in a transaction as the `signa_app` role with `app.property_id`, `app.user_id` and `app.is_admin` set (`lib/db.ts → tenant()`). RLS policies in `supabase/migrations/0001_init.sql` then limit:
+
+Per-form access levels: **General** (fill in, see own requests) · **Review** (also see every submission, read-only) · **Approval** (Review + can be chosen as an approver). Admins see everything in their property.
 
 - **all tables** to the current property;
 - **forms** to ones the user owns, has access to, or that are open to all users;

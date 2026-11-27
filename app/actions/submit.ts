@@ -1,7 +1,7 @@
 "use server";
 import { rootSql, tenant } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth";
-import { formAccess, canSubmit, canReview } from "@/lib/access";
+import { formAccess, canSubmit, canApprove } from "@/lib/access";
 import { validateAnswers, fileIdsIn } from "@/lib/validate";
 import { submit, resubmit, withdraw, decide, resolveActionToken } from "@/lib/approvals";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
@@ -96,7 +96,7 @@ export async function decideInApp(approvalId: string, decision: "approved" | "re
     where a.id = ${approvalId}`;
   if (!a || a.property_id !== u.property_id || a.approver_user_id !== u.id) return { ok: false as const, error: "This approval isn't assigned to you." };
   const acc = await tenant({ propertyId: u.property_id, userId: null }, (tx) => formAccess(tx, { id: u.id, is_admin: false }, { id: a.form_id, owner_id: null }));
-  if (!canReview(acc)) return { ok: false as const, error: "You no longer have Review access to this form." };
+  if (!canApprove(acc)) return { ok: false as const, error: "You no longer have Approval access to this form." };
   return decide(u.property_id, approvalId, decision, comment, { userId: u.id, name: u.name, via: "app" });
 }
 

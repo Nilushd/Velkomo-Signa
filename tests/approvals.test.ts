@@ -4,7 +4,7 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { rootSql, tenant } from "@/lib/db";
 import { submit, decide, resubmit, withdraw, resolveActionToken } from "@/lib/approvals";
-import { formAccess, canSubmit, canReview } from "@/lib/access";
+import { formAccess, canSubmit, canReview, canApprove } from "@/lib/access";
 import type { FormRow } from "@/lib/types";
 import { randomToken, sha256 } from "@/lib/crypto";
 
@@ -138,6 +138,20 @@ describe("access control", () => {
     expect(nim.every((s) => s.submitter_id === U.nimali.id)).toBe(true);
     const rev = await tenant({ propertyId: pid, userId: U.supervisor.id }, (tx) => tx`select id from submissions where form_id = ${form.id}`);
     expect(rev.length).toBeGreaterThan(0);
+  });
+
+  it("Review sees all submissions but cannot approve; Approval can", async () => {
+    const [viewer] = await sql`insert into users (property_id, username, name, password_hash) values (${pid}, ${"rev" + randomToken(3)}, 'Viewer', 'x') returning id`;
+    await sql`insert into form_access (property_id, form_id, user_id, access) values (${pid}, ${form.id}, ${viewer.id}, 'review')`;
+    const who = { id: viewer.id, is_admin: false };
+    const acc = await tenant({ propertyId: pid, userId: viewer.id }, (tx) => formAccess(tx, who, form));
+    expect(acc).toBe("review");
+    expect(canReview(acc)).toBe(true);
+    expect(canApprove(acc)).toBe(false);
+    const seen = await tenant({ propertyId: pid, userId: viewer.id }, (tx) => tx`select id from submissions where form_id = ${form.id}`);
+    expect(seen.length).toBeGreaterThan(0);
+    const sup = await tenant({ propertyId: pid, userId: U.supervisor.id }, (tx) => formAccess(tx, { id: U.supervisor.id, is_admin: false }, form));
+    expect(canApprove(sup)).toBe(true);
   });
 
   it("properties are isolated by RLS", async () => {

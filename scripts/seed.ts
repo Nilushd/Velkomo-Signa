@@ -34,8 +34,8 @@ async function main() {
     return p.id as string;
   }
   async function user(pid: string, username: string, name: string, dept: string, extra: Partial<{ is_admin: boolean; is_super_admin: boolean; email: string; can_build_forms: boolean; can_use_studio: boolean }> = {}) {
-    const [u] = await sql`insert into users (property_id, username, name, department, email, password_hash, is_admin, is_super_admin, can_build_forms, can_use_studio, must_change_password)
-      values (${pid}, ${username}, ${name}, ${dept}, ${extra.email ?? null}, ${hash}, ${extra.is_admin ?? false}, ${extra.is_super_admin ?? false}, ${extra.can_build_forms ?? false}, ${extra.can_use_studio ?? false}, false) returning id`;
+    const [u] = await sql`insert into users (property_id, username, name, department, email, password_hash, is_admin, is_super_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
+      values (${pid}, ${username}, ${name}, ${dept}, ${extra.email ?? null}, ${hash}, ${extra.is_admin ?? false}, ${extra.is_super_admin ?? false}, ${extra.can_build_forms ?? false}, ${extra.can_build_forms ?? false}, ${extra.can_build_forms ?? false}, false) returning id`;
     return u.id as string;
   }
 
@@ -59,7 +59,7 @@ async function main() {
       values (${pid}, ${admin}, 'Leave Request', 'Apply for leave. A front-office reviewer checks it first, then the admin approves.', ${code()},
         ${sql.json(leaveSchema)}, ${sql.json({ primary: "#2563EB", background: "#F4F7FC", font: "sans", logoSource: "property", logoAlign: "left", logoSize: "m", showPropertyName: true, formCode: "HR-F-001 Rev 1", printFooter: "Human Resources · Please keep a copy for your records.", thankYou: "Thanks! Your leave request is with your supervisor." })},
         'published', 'assigned') returning id`;
-    for (const [u, a] of [[admin, "review"], [r1, "review"], [r2, "review"], [g1, "general"], [g2, "general"], [g3, "general"]] as const)
+    for (const [u, a] of [[admin, "approve"], [r1, "approve"], [r2, "approve"], [g1, "general"], [g2, "general"], [g3, "general"]] as const)
       await sql`insert into form_access (property_id, form_id, user_id, access) values (${pid}, ${form.id}, ${u}, ${a})`;
     const [s1] = await sql`insert into approval_steps (property_id, form_id, level, name, channel, reminder_days) values (${pid}, ${form.id}, 1, 'Supervisor review', 'both', 2) returning id`;
     const [s2] = await sql`insert into approval_steps (property_id, form_id, level, name, channel) values (${pid}, ${form.id}, 2, 'Admin approval', 'both') returning id`;

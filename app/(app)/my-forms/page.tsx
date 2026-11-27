@@ -8,7 +8,7 @@ export default async function MyForms() {
   const u = await requireUser();
   const forms = await asUser(u, (tx) => tx<{ id: string; title: string; description: string; short_code: string; visibility: string; access: string | null }[]>`
     select f.id, f.title, f.description, f.short_code, f.visibility,
-      (select case when bool_or(access='review') then 'review' when bool_or(access='general') then 'general' end from form_access fa
+      (select case when bool_or(access='approve') then 'approve' when bool_or(access='review') then 'review' when bool_or(access='general') then 'general' end from form_access fa
         where fa.form_id = f.id and (fa.user_id = ${u.id} or fa.group_id in (select group_id from group_members where user_id = ${u.id}))) as access
     from forms f
     where f.status = 'published' and (f.closes_at is null or f.closes_at > now())
@@ -24,6 +24,7 @@ export default async function MyForms() {
               <p className="font-semibold group-hover:text-brand-700">{f.title}</p>
               {f.description && <p className="mt-1 line-clamp-2 text-sm text-ink-mute">{f.description}</p>}
               <div className="mt-auto flex items-center gap-2 pt-3 text-xs text-ink-mute">
+                {f.access === "approve" && <span className="badge bg-brand-50 text-brand-700">Approver</span>}
                 {f.access === "review" && <span className="badge bg-brand-50 text-brand-700">Reviewer</span>}
                 {f.visibility === "public" && <span className="badge bg-cyan-50 text-cyan-800">Public</span>}
                 <span className="ml-auto font-medium text-brand-700">Open →</span>

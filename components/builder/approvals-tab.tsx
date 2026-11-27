@@ -9,10 +9,10 @@ import type { BuilderData } from "./builder";
 
 /** Options for choosing approvers: everyone; people without Review access get it when chosen. */
 export function approverOptions(users: BuilderData["users"], groups: BuilderData["groups"], access: AccessEntry[]): PickOption[] {
-  const rev = new Set(access.filter((a) => a.access === "review").map((a) => a.userId ?? a.groupId));
+  const rev = new Set(access.filter((a) => a.access === "approve").map((a) => a.userId ?? a.groupId));
   return [
-    ...groups.map((g) => ({ key: `g:${g.id}`, label: g.name, sub: `Group · ${g.members} members${rev.has(g.id) ? "" : " · will get Review access"}`, kind: "group" as const })),
-    ...users.map((u) => ({ key: `u:${u.id}`, label: u.name, sub: [u.department, u.email ? "" : "no e-mail → app only", rev.has(u.id) ? "" : "will get Review access"].filter(Boolean).join(" · "), kind: "user" as const })),
+    ...groups.map((g) => ({ key: `g:${g.id}`, label: g.name, sub: `Group · ${g.members} members${rev.has(g.id) ? "" : " · will get Approval access"}`, kind: "group" as const })),
+    ...users.map((u) => ({ key: `u:${u.id}`, label: u.name, sub: [u.department, u.email ? "" : "no e-mail → app only", rev.has(u.id) ? "" : "will get Approval access"].filter(Boolean).join(" · "), kind: "user" as const })),
   ];
 }
 
@@ -61,7 +61,7 @@ export function ApprovalsTab({ formId, initial, users, groups, access }: { formI
   const status = useAutosave(steps, async (v) => {
     const r = await saveApprovals(formId, v);
     if ("error" in r && r.error) throw new Error(r.error);
-    return "granted" in r && r.granted?.length ? `Review access given to ${r.granted.join(", ")}.` : undefined;
+    return "granted" in r && r.granted?.length ? `Approval access given to ${r.granted.join(", ")}.` : undefined;
   }, stepProblem);
   return (
     <div className="max-w-3xl space-y-4">

@@ -47,20 +47,20 @@ const stepSchema = z.object({
   reminderDays: z.number().int().min(1).max(60).nullable().default(null),
   approvers: z.array(approverSchema).default([]),
 });
-const accessSchema = z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), access: z.enum(["general", "review"]) }));
+const accessSchema = z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), access: z.enum(["general", "approve", "review"]) }));
 
 /**
  * Replace a form's approval levels. Anyone chosen as an approver who doesn't yet have Review access
- * to the form gets it automatically (approvers must be able to see the submissions). Returns their names.
+ * Approval access to the form gets it automatically. Returns their names.
  */
 async function writeSteps(tx: Sql, propertyId: string, formId: string, steps: z.infer<typeof stepSchema>[]): Promise<string[]> {
   const granted: string[] = [];
   for (const s of steps) for (const a of s.approvers) {
     const col = a.userId ? tx`user_id = ${a.userId}` : tx`group_id = ${a.groupId!}`;
     const [ex] = await tx<{ access: string }[]>`select access from form_access where form_id = ${formId} and ${col}`;
-    if (ex?.access === "review") continue;
-    if (ex) await tx`update form_access set access = 'review' where form_id = ${formId} and ${col}`;
-    else await tx`insert into form_access (property_id, form_id, user_id, group_id, access) values (${propertyId}, ${formId}, ${a.userId ?? null}, ${a.groupId ?? null}, 'review')`;
+    if (ex?.access === "approve") continue;
+    if (ex) await tx`update form_access set access = 'approve' where form_id = ${formId} and ${col}`;
+    else await tx`insert into form_access (property_id, form_id, user_id, group_id, access) values (${propertyId}, ${formId}, ${a.userId ?? null}, ${a.groupId ?? null}, 'approve')`;
     const [n] = a.userId ? await tx<{ name: string }[]>`select name from users where id = ${a.userId}` : await tx<{ name: string }[]>`select name from groups where id = ${a.groupId!}`;
     if (n && !granted.includes(n.name)) granted.push(n.name);
   }
@@ -161,12 +161,12 @@ export async function saveSettings(formId: string, input: { closesAt: string | n
   return { ok: true };
 }
 
-export interface AccessEntry { userId?: string; groupId?: string; access: "general" | "review" }
+export interface AccessEntry { userId?: string; groupId?: string; access: "general" | "review" | "approve" }
 
-/** Replace the access list. Approvers who lose Review access are removed from levels (and reported). */
+/** Replace the access list. Approvers who lose Approval access are removed from levels (and reported). */
 export async function saveAccess(formId: string, entries: AccessEntry[]) {
   const u = await requireUser();
-  const list = z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), access: z.enum(["general", "review"]) })).parse(entries);
+  const list = z.array(z.object({ userId: z.string().uuid().optional(), groupId: z.string().uuid().optional(), access: z.enum(["general", "approve", "review"]) })).parse(entries);
   const removed = await asUser(u, async (tx) => {
     await editable(u, tx, formId);
     await tx`delete from form_access where form_id = ${formId}`;
@@ -181,16 +181,16 @@ export async function saveAccess(formId: string, entries: AccessEntry[]) {
   return { ok: true, removed };
 }
 
-/** Remove approvers (users/groups) that no longer have Review access on the form. Returns their names. */
+/** Remove approvers (users/groups) that no longer have Approval access on the form. Returns their names. */
 export async function pruneApprovers(tx: Sql, formId: string): Promise<string[]> {
   const gone = await tx<{ id: string; name: string }[]>`
     select sa.id, coalesce(u.name, g.name) as name from approval_step_approvers sa
     join approval_steps st on st.id = sa.step_id and st.form_id = ${formId}
     left join users u on u.id = sa.user_id left join groups g on g.id = sa.group_id
     where (sa.user_id is not null and sa.user_id not in (
-            select user_id from form_access where form_id = ${formId} and access = 'review' and user_id is not null
-            union select gm.user_id from form_access fa join group_members gm on gm.group_id = fa.group_id where fa.form_id = ${formId} and fa.access = 'review'))
-       or (sa.group_id is not null and sa.group_id not in (select group_id from form_access where form_id = ${formId} and access = 'review' and group_id is not null))`;
+            select user_id from form_access where form_id = ${formId} and access = 'approve' and user_id is not null
+            union select gm.user_id from form_access fa join group_members gm on gm.group_id = fa.group_id where fa.form_id = ${formId} and fa.access = 'approve'))
+       or (sa.group_id is not null and sa.group_id not in (select group_id from form_access where form_id = ${formId} and access = 'approve' and group_id is not null))`;
   if (gone.length) await tx`delete from approval_step_approvers where id in ${tx(gone.map((g) => g.id))}`;
   return gone.map((g) => g.name);
 }
