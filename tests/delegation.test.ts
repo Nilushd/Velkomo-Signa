@@ -104,3 +104,4 @@ describe("out of office", () => {
     await sql`update delegations set cancelled_at = now() where from_user_id = ${U.supervisor.id}`;
   });
 });
+

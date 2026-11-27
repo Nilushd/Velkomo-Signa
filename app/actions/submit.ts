@@ -115,3 +115,23 @@ export async function decideByToken(token: string, decision: "approved" | "rejec
   }
   return decide(t.property_id, t.approval_id, decision, comment, { userId: ap.approver_user_id, name: ap.name, via: "email" });
 }
+
+/**
+ * Bulk approve / reject from My Approvals. Each one goes through the same checks and engine as a single
+ * decision (first-to-act, access, audit log, e-mails), so the record is identical to deciding one by one.
+ */
+export async function decideMany(approvalIds: string[], decision: "approved" | "rejected", comment: string) {
+  const ids = [...new Set(approvalIds)].filter((x) => /^[0-9a-f-]{36}$/.test(x)).slice(0, 100);
+  if (decision === "rejected" && !comment.trim()) return { done: 0, skipped: [] as { ref: string; reason: string }[], error: "A comment is required to reject." };
+  let done = 0;
+  const skipped: { ref: string; reason: string }[] = [];
+  for (const id of ids) {
+    const r = await decideInApp(id, decision, comment);
+    if (r.ok) done++;
+    else {
+      const [s] = await rootSql()<{ ref_no: string }[]>`select s.ref_no from approvals a join submissions s on s.id = a.submission_id where a.id = ${id}`;
+      skipped.push({ ref: s?.ref_no ?? "?", reason: r.error });
+    }
+  }
+  return { done, skipped };
+}
