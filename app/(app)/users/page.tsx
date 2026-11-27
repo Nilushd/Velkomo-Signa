@@ -6,7 +6,7 @@ import { UserPlus, Users } from "lucide-react";
 
 export const metadata = { title: "Users & Groups" };
 
-export default async function UsersPage({ searchParams }: { searchParams: Promise<{ q?: string; removed?: string }> }) {
+export default async function UsersPage({ searchParams }: { searchParams: Promise<{ q?: string; removed?: string; anonymised?: string }> }) {
   const admin = await requireAdmin();
   const q = (await searchParams).q?.trim() || null;
   const like = q ? `%${q}%` : null;
@@ -19,11 +19,12 @@ export default async function UsersPage({ searchParams }: { searchParams: Promis
     from users u where (${like}::text is null or u.name ilike ${like} or u.username ilike ${like} or coalesce(u.department,'') ilike ${like})
     order by u.active desc, u.name`);
   const homes = await propertyCodes([...new Set(users.filter((u) => u.home_pid !== admin.property_id).map((u) => u.home_pid))]);
-  const { removed } = await searchParams;
+  const { removed, anonymised } = await searchParams;
   return (
     <>
       <PageHeader title="Users & Groups" subtitle={`${users.length} users in ${admin.property_name}`}
         actions={<><Link href="/users/groups" className="btn-secondary"><Users className="h-4 w-4" /> Groups</Link><Link href="/users/new" className="btn-primary"><UserPlus className="h-4 w-4" /> Add user</Link></>} />
+      {anonymised && <div className="mb-4"><Alert kind="success">Personal data erased. Their approval records remain, shown as “Former user”.</Alert></div>}
       {removed && <div className="mb-4"><Alert kind="success">Access to {admin.property_name} removed.</Alert></div>}
       <form className="mb-4"><input name="q" defaultValue={q ?? ""} className="input max-w-sm" placeholder="Search name, username, department…" aria-label="Search users" /></form>
       <div className="card overflow-x-auto">

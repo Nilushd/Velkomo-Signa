@@ -8,8 +8,9 @@ import type { Field, Theme } from "@/lib/types";
 
 declare global { interface Window { hcaptcha?: { render: (el: HTMLElement, o: { sitekey: string }) => string; getResponse: (id?: string) => string; reset: (id?: string) => void } } }
 
-export function FillForm({ code, title, description, schema, theme, signedInAs, captchaSiteKey, initial, propertyName, propertyLogo }:
-  { code: string; title: string; description: string; schema: Field[]; theme: Theme; signedInAs: string | null; captchaSiteKey: string | null; initial?: Record<string, unknown>; propertyName: string; propertyLogo: string | null }) {
+export function FillForm({ code, title, description, schema, theme, signedInAs, captchaSiteKey, initial, propertyName, propertyLogo, consent }:
+  { consent: boolean; code: string; title: string; description: string; schema: Field[]; theme: Theme; signedInAs: string | null; captchaSiteKey: string | null; initial?: Record<string, unknown>; propertyName: string; propertyLogo: string | null }) {
+  const [agreed, setAgreed] = useState(false);
   const [done, setDone] = useState<{ refNo: string; status: string; statusToken?: string; id?: string } | null>(null);
   const cap = useRef<HTMLDivElement>(null);
   const capId = useRef<string | undefined>(undefined);
@@ -49,10 +50,21 @@ export function FillForm({ code, title, description, schema, theme, signedInAs, 
   return (
     <FormRenderer title={title} description={description} schema={schema} theme={theme} uploadCode={code} initial={initial} propertyName={propertyName} propertyLogo={propertyLogo}
       header={signedInAs ? <p className="mt-3 text-xs text-ink-mute">Signed in as {signedInAs}</p> : null}
-      footer={captchaSiteKey ? <div ref={cap} className="mb-3" /> : null}
+      footer={<>
+        {consent ? (
+          <label className="mb-3 flex items-start gap-3 rounded-lg bg-ink-wash/70 p-3 text-sm text-ink-soft">
+            <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0" checked={agreed} onChange={(e) => setAgreed(e.target.checked)} name="privacy_consent" />
+            <span>I agree that {propertyName} may use the information in this form, including any files I attach, to handle my request, as explained in its <a href={`/f/${code}/privacy`} target="_blank" rel="noopener" className="text-brand-700 underline">privacy notice</a>.</span>
+          </label>
+        ) : (
+          <p className="mb-3 text-xs text-ink-mute">How {propertyName} uses this information: <a href={`/f/${code}/privacy`} target="_blank" rel="noopener" className="text-brand-700 underline">privacy notice</a>.</p>
+        )}
+        {captchaSiteKey ? <div ref={cap} className="mb-3" /> : null}
+      </>}
       onSubmit={async (data) => {
         const token = captchaSiteKey && window.hcaptcha ? window.hcaptcha.getResponse(capId.current) : null;
-        const r = await submitForm(code, data, token);
+        if (consent && !agreed) return { error: "Please tick the box to agree to the privacy notice before sending." };
+        const r = await submitForm(code, data, token, consent ? agreed : undefined);
         if (r.ok) { setDone(r); window.scrollTo({ top: 0, behavior: "smooth" }); return; }
         if (captchaSiteKey) window.hcaptcha?.reset(capId.current);
         return { error: r.error, fieldErrors: r.fieldErrors };

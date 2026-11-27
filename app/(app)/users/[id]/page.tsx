@@ -9,6 +9,7 @@ import { rootSql } from "@/lib/db";
 import { groupOf, userHotels, propertyCodes } from "@/lib/groups";
 import { adminResetTwoFactor } from "@/app/actions/twofa";
 import { UserAccessTable, UserGroups, ResetPasswordForm, RoleSwitches, HotelAccess } from "./client";
+import { AnonymiseUser } from "@/components/privacy-panels";
 import { AccessLegend } from "@/components/access-levels";
 import { DelegationPanel } from "@/components/delegation-panel";
 import { loadDelegations, approvableForms } from "@/lib/delegation";
@@ -102,6 +103,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
               <form action={async () => { "use server"; await adminResetTwoFactor(u.id); }}><button className="btn-secondary btn-sm">Turn off two-factor</button></form></div>
           ) : <p className="text-sm text-ink-mute">Off. Each person can turn it on in their own Settings.</p>}
         </section>
+        {u.id !== admin.id && <AnonymiseUser userId={u.id} name={u.name} />}
         <section className="card p-5"><h2 className="mb-1 font-semibold">Reset password</h2><p className="mb-3 text-sm text-ink-mute">Sets a temporary password. They must change it at next sign-in.</p><ResetPasswordForm userId={u.id} /></section>
       </div>
     </div>

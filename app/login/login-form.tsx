@@ -52,7 +52,7 @@ export function LoginForm({ next, saved }: { next: string; saved: { code: string
       </div>
       <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" checked={show} onChange={(e) => setShow(e.target.checked)} /> Show password</label>
       <SubmitButton className="btn-primary w-full py-2.5" pendingText="Signing in…">Sign in</SubmitButton>
-      <p className="text-center text-sm"><Link href="/forgot-password" className="text-brand-700 hover:underline">Forgot password?</Link></p>
+      <p className="text-center text-sm"><Link href="/forgot-password" className="text-brand-700 hover:underline">Forgot password?</Link><span className="mx-2 text-ink-line">|</span><Link href="/privacy" className="text-ink-mute hover:underline">Privacy</Link></p>
     </form>
   );
 }

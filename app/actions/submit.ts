@@ -1,4 +1,5 @@
 "use server";
+import { privacyOf } from "@/lib/privacy";
 import { propertyState, isOpen } from "@/lib/subscription";
 import { rootSql, tenant } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth";
@@ -31,7 +32,7 @@ function guessEmail(schema: Field[], data: Record<string, unknown>) {
   return f && data[f.id] ? String(data[f.id]) : null;
 }
 
-export async function submitForm(code: string, raw: Record<string, unknown>, captcha?: string | null): Promise<Res> {
+export async function submitForm(code: string, raw: Record<string, unknown>, captcha?: string | null, consented?: boolean): Promise<Res> {
   const [form] = await rootSql()<FormRow[]>`select * from forms where short_code = ${code}`;
   if (!form || form.status !== "published") return { ok: false, error: "This form is not accepting submissions." };
   if (!isOpen(await propertyState(form.property_id))) return { ok: false, error: "This form is not accepting submissions." };
@@ -43,6 +44,10 @@ export async function submitForm(code: string, raw: Record<string, unknown>, cap
     if (!(await rateLimit(`submit:${await clientIp()}`, 20, 3600))) return { ok: false, error: "Too many submissions from your network. Please try again later." };
     if (!(await verifyCaptcha(captcha))) return { ok: false, error: "Please complete the captcha." };
   }
+  // Consent to the organisation's privacy notice: always for people without an account, and for staff when the organisation asks for it.
+  const pv = await privacyOf(form.property_id);
+  const needConsent = !user || !!pv?.consentAllForms;
+  if (needConsent && !consented) return { ok: false, error: "Please tick the box to agree to the privacy notice before sending." };
   const v = validateAnswers(form.schema, raw);
   if (!v.ok) return { ok: false, error: "Please check the highlighted fields.", fieldErrors: v.errors };
   if (!(await filesBelong(form, v.data))) return { ok: false, error: "An attached file is invalid. Please upload it again." };
@@ -52,7 +57,8 @@ export async function submitForm(code: string, raw: Record<string, unknown>, cap
     email: user?.email ?? guessEmail(form.schema, v.data),
   });
   if (!r.ok) return r;
-  return { ok: true, refNo: r.refNo, status: r.status, statusToken: user ? undefined : r.statusToken, id: r.id };
+  if (needConsent) await rootSql()`update submissions set consent_at = now(), consent_version = ${pv?.version ?? 1} where id = ${r.id}`;
+  return { ok: true, refNo: r.refNo, status: r.status, statusToken: user ? undefined : r.statusToken, id: user ? r.id : undefined };
 }
 
 /** Public requester (no account) resubmits through the status link. */

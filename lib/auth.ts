@@ -89,6 +89,7 @@ export async function login(propertyCode: string, username: string, password: st
     return { ok: true, mustChange: u.must_change_password, twoFactor: true };
   }
   await createSession(u.id);
+  await noteSignIn(u.id, "password");
   return { ok: true, mustChange: u.must_change_password, twoFactor: false };
 }
 
@@ -132,7 +133,14 @@ export async function completeTwoFactor(code: string): Promise<{ ok: true; mustC
   await sql`delete from login_challenges where id = ${ch.id}`;
   c.delete(TWOFA_COOKIE);
   await createSession(ch.user_id);
+  await noteSignIn(ch.user_id, "two-factor");
   return { ok: true, mustChange: u.must_change_password, usedBackup, backupLeft };
+}
+
+async function noteSignIn(userId: string, method: "password" | "two-factor") {
+  const h = await headers();
+  const { recordSignIn } = await import("./privacy");
+  await recordSignIn(userId, h.get("x-forwarded-for") ?? h.get("x-real-ip"), h.get("user-agent"), method).catch(() => {});
 }
 
 export async function createSession(userId: string) {

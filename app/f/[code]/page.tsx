@@ -7,6 +7,7 @@ import type { FormRow } from "@/lib/types";
 import { PublicShell, Notice } from "@/components/public-shell";
 import { FillForm } from "./fill-form";
 import { propertyState, isOpen } from "@/lib/subscription";
+import { privacyOf } from "@/lib/privacy";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
@@ -43,7 +44,7 @@ export default async function FormPage({ params }: { params: Promise<{ code: str
     <PublicShell background={bg}>
       <FillForm code={code} propertyName={prop.name} propertyLogo={prop.logo_file_id} title={form.title} description={form.description} schema={form.schema} theme={form.theme}
         signedInAs={user ? user.name : null} captchaSiteKey={!user ? process.env.NEXT_PUBLIC_HCAPTCHA_SITEKEY ?? null : null}
-        initial={user ? prefill(form, user) : undefined} />
+        initial={user ? prefill(form, user) : undefined} consent={!user || !!(await privacyOf(form.property_id))?.consentAllForms} />
     </PublicShell>
   );
 }
