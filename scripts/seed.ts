@@ -1,5 +1,5 @@
 /**
- * Demo data: Super Admin (property VELKOMO) + two demo properties HTL01 and HTL02 to prove data isolation.
+ * Demo data: Super Admin (Platform account, property code PLATFORM) + two demo properties HTL01 and HTL02 to prove data isolation.
  * Per property: 1 admin, 2 reviewers, 3 general users, a "Leave Request" form with 2 levels (level 1 has 2 approvers).
  * Usage: npm run db:seed   (safe to re-run: skips properties that already exist)
  */
@@ -39,8 +39,8 @@ async function main() {
     return u.id as string;
   }
 
-  const sp = await property("VELKOMO", "Velkomo Platform");
-  if (sp) await user(sp, "superadmin", "Super Admin", "Platform", { is_super_admin: true, is_admin: true, email: "superadmin@example.com" });
+  // Super Admin: a Platform account (not a hotel user). Signs in with property code PLATFORM.
+  await sql`insert into platform_admins (username, name, email, password_hash) values ('superadmin', 'Super Admin', 'superadmin@example.com', ${hash}) on conflict do nothing`;
 
   for (const [pc, name] of [["HTL01", "Demo Hotel One"], ["HTL02", "Demo Hotel Two"]]) {
     const pid = await property(pc, name);
@@ -67,7 +67,7 @@ async function main() {
     await sql`insert into approval_step_approvers (property_id, step_id, user_id) values (${pid}, ${s2.id}, ${admin})`;
     console.log(`seeded ${pc} (${name})`);
   }
-  console.log(`\nLogin with password "${PASSWORD}":\n  VELKOMO / superadmin\n  HTL01 or HTL02 / admin, manager, supervisor (reviewers), john, nimali, ravi (general)`);
+  console.log(`\nLogin with password "${PASSWORD}":\n  PLATFORM / superadmin  (Platform console)\n  HTL01 or HTL02 / admin, manager, supervisor (reviewers), john, nimali, ravi (general)`);
   await sql.end();
 }
 main().catch((e) => { console.error(e); process.exit(1); });

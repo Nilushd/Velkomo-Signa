@@ -3,12 +3,12 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import clsx from "clsx";
-import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Building2, Bell, Menu, X, LogOut, Wand2 } from "lucide-react";
+import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Bell, Menu, X, LogOut, Wand2 } from "lucide-react";
 import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "./ui";
 
 interface Props {
-  user: { name: string; username: string; isAdmin: boolean; isSuper: boolean; canBuild: boolean; canStudio: boolean; reviewer: boolean };
+  user: { name: string; username: string; isAdmin: boolean; canBuild: boolean; canStudio: boolean; reviewer: boolean };
   property: { name: string; code: string; logo: string | null };
   counts: { approvals: number; unread: number };
 }
@@ -27,7 +27,6 @@ export function Sidebar({ user, property, counts }: Props) {
     { href: "/users", label: "Users & Groups", icon: Users, show: user.isAdmin },
     { href: "/notifications", label: "Notifications", icon: Bell, show: true, count: counts.unread },
     { href: "/settings", label: "Settings", icon: Settings, show: true },
-    { href: "/platform", label: "Platform", icon: Building2, show: user.isSuper },
   ].filter((i) => i.show);
   const active = (href: string) => (href === "/" ? path === "/" : path === href || (path.startsWith(href + "/") && !(href === "/forms" && path.startsWith("/forms/studio"))));
 

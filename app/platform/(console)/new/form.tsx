@@ -20,7 +20,7 @@ export function NewHotelForm() {
       <div className="max-w-2xl space-y-4">
         <Alert kind="success">Hotel created.</Alert>
         <Credentials code={state.code ?? code} username={state.username ?? "admin"} password={state.password} />
-        <div className="flex gap-2"><Link href={`/platform?edit=${state.id}`} className="btn-primary">Edit hotel</Link><Link href="/platform" className="btn-secondary">Back to Platform</Link></div>
+        <div className="flex gap-2"><Link href={`/platform?edit=${state.id}`} className="btn-primary">Edit hotel</Link><Link href="/platform" className="btn-secondary">Back to hotels</Link></div>
       </div>);
   }
   return (

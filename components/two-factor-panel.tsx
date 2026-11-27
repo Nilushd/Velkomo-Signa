@@ -22,7 +22,10 @@ function BackupCodes({ codes, onDone }: { codes: string[]; onDone: () => void })
 }
 
 /** Settings: turn two-factor sign-in on (QR → code → backup codes) or off (needs a code). */
-export function TwoFactorPanel({ enabled, backupLeft }: { enabled: boolean; backupLeft: number | null }) {
+type Actions = { start: typeof startTwoFactor; confirm: typeof confirmTwoFactor; disable: typeof disableTwoFactor; newCodes: typeof newBackupCodes };
+const HOTEL: Actions = { start: startTwoFactor, confirm: confirmTwoFactor, disable: disableTwoFactor, newCodes: newBackupCodes };
+
+export function TwoFactorPanel({ enabled, backupLeft, actions = HOTEL }: { enabled: boolean; backupLeft: number | null; actions?: Actions }) {
   const [setup, setSetup] = useState<{ qr: string; secret: string; account: string } | null>(null);
   const [codes, setCodes] = useState<string[] | null>(null);
   const [code, setCode] = useState("");
@@ -38,7 +41,7 @@ export function TwoFactorPanel({ enabled, backupLeft }: { enabled: boolean; back
       <div className="space-y-3">
         {msg && <Alert kind={msg.kind}>{msg.text}</Alert>}
         <p className="text-sm text-ink-soft">Add a second step to signing in: after your password, enter a 6-digit code from an authenticator app on your phone (Google Authenticator, Microsoft Authenticator, Authy…). Someone who learns your password still can&apos;t get in.</p>
-        <button className="btn-primary" disabled={pending} onClick={() => start(async () => { setSetup(await startTwoFactor()); setMsg(null); })}><ShieldCheck className="h-4 w-4" /> Turn on two-factor</button>
+        <button className="btn-primary" disabled={pending} onClick={() => start(async () => { setSetup(await actions.start()); setMsg(null); })}><ShieldCheck className="h-4 w-4" /> Turn on two-factor</button>
       </div>);
     return (
       <div className="space-y-4">
@@ -54,7 +57,7 @@ export function TwoFactorPanel({ enabled, backupLeft }: { enabled: boolean; back
             <div className="mt-2 flex max-w-xs gap-2">
               <input className="input text-center font-mono text-lg tracking-[0.4em]" inputMode="numeric" autoComplete="one-time-code" maxLength={7} value={code} onChange={(e) => setCode(e.target.value)} placeholder="••••••" aria-label="6-digit code" />
               <button className="btn-primary" disabled={pending || code.replace(/\s/g, "").length !== 6} onClick={() => start(async () => {
-                const r = await confirmTwoFactor(code);
+                const r = await actions.confirm(code);
                 if ("error" in r && r.error) { setMsg({ kind: "error", text: r.error }); return; }
                 if ("codes" in r && r.codes) { setCodes(r.codes); setSetup(null); setCode(""); setMsg({ kind: "success", text: "Two-factor sign-in is on." }); }
               })}>Turn on</button>
@@ -79,7 +82,7 @@ export function TwoFactorPanel({ enabled, backupLeft }: { enabled: boolean; back
         <div className="flex max-w-md flex-wrap items-center gap-2">
           <input className="input w-40 text-center font-mono tracking-widest" value={code} onChange={(e) => setCode(e.target.value)} placeholder="Code" aria-label="Current code or backup code" autoFocus />
           <button className={mode === "off" ? "btn-danger" : "btn-primary"} disabled={pending || code.trim().length < 6} onClick={() => start(async () => {
-            const r = mode === "off" ? await disableTwoFactor(code) : await newBackupCodes(code);
+            const r = mode === "off" ? await actions.disable(code) : await actions.newCodes(code);
             if ("error" in r && r.error) { setMsg({ kind: "error", text: r.error }); return; }
             setCode(""); setMode(null);
             if ("codes" in r && r.codes) setCodes(r.codes as string[]);

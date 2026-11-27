@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { pendingTwoFactor } from "@/lib/auth";
+import { pendingPlatformTwoFactor } from "@/lib/platform-auth";
 import { AuthShell } from "@/components/auth-shell";
 import { TwoFactorForm } from "./form";
 
 export const metadata = { title: "Enter your code" };
 
 export default async function TwoFactorPage({ searchParams }: { searchParams: Promise<{ next?: string }> }) {
-  const p = await pendingTwoFactor();
+  const p = (await pendingPlatformTwoFactor()) ?? (await pendingTwoFactor());
   if (!p) redirect("/login?expired=1");
   const { next } = await searchParams;
   return (

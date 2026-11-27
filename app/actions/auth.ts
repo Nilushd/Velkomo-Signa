@@ -2,7 +2,8 @@
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { rootSql } from "@/lib/db";
-import { login, logout, getSession, hashPassword, passwordProblem, createSession, completeTwoFactor } from "@/lib/auth";
+import { platformLogin, completePlatformTwoFactor, pendingPlatformTwoFactor, isPlatformCode, PLATFORM_CODE } from "@/lib/platform-auth";
+import { LOGIN_ERROR, login, logout, getSession, hashPassword, passwordProblem, createSession, completeTwoFactor } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { sendEmail, emailLayout } from "@/lib/email";
@@ -15,6 +16,14 @@ export type FormState = { error?: string; ok?: string } | undefined;
 
 export async function loginAction(_: FormState, fd: FormData): Promise<FormState> {
   if (!(await rateLimit(`login:${await clientIp()}`, 30, 600))) return { error: "Too many attempts. Try again in a few minutes." };
+  if (isPlatformCode(String(fd.get("property") ?? ""))) {
+    // Super Admins: same page, property code "PLATFORM" — their own accounts, separate from every hotel.
+    const r = await platformLogin(String(fd.get("username") ?? ""), String(fd.get("password") ?? ""));
+    if (!r.ok) return { error: LOGIN_ERROR };
+    (await cookies()).set(PROPERTY_COOKIE, PLATFORM_CODE, { httpOnly: true, sameSite: "lax", path: "/", maxAge: 400 * 86400, secure: process.env.NODE_ENV === "production" });
+    if (r.twoFactor) redirect("/login/2fa");
+    redirect(r.mustChange ? "/platform/change-password" : "/platform");
+  }
   const r = await login(String(fd.get("property") ?? ""), String(fd.get("username") ?? ""), String(fd.get("password") ?? ""));
   if (!r.ok) return { error: r.error };
   // Remember the property code on this device once a sign-in succeeds (changeable on the login page).
@@ -27,6 +36,11 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
 
 export async function twoFactorAction(_: FormState, fd: FormData): Promise<FormState> {
   if (!(await rateLimit(`2fa:${await clientIp()}`, 30, 600))) return { error: "Too many attempts. Try again in a few minutes." };
+  if (await pendingPlatformTwoFactor()) {
+    const p = await completePlatformTwoFactor(String(fd.get("code") ?? ""));
+    if (!p.ok) { if (p.restart) redirect("/login?expired=1"); return { error: p.error }; }
+    redirect(p.mustChange ? "/platform/change-password" : "/platform");
+  }
   const r = await completeTwoFactor(String(fd.get("code") ?? ""));
   if (!r.ok) { if (r.restart) redirect("/login?expired=1"); return { error: r.error }; }
   const next = String(fd.get("next") ?? "");

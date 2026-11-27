@@ -1,8 +1,7 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import clsx from "clsx";
 import { Plus, Search } from "lucide-react";
-import { requireUser } from "@/lib/auth";
+import { requirePlatformAdmin } from "@/lib/platform-auth";
 import { rootSql } from "@/lib/db";
 import { PageHeader, Alert } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
@@ -25,8 +24,7 @@ const FILTERS: { v: string; label: string; match: (s: SubState) => boolean }[] =
 ];
 
 export default async function PlatformPage({ searchParams }: { searchParams: Promise<{ show?: string; q?: string; deleted?: string; edit?: string }> }) {
-  const u = await requireUser();
-  if (!u.is_super_admin) redirect("/");
+  await requirePlatformAdmin();
   const { show = "all", q = "", deleted, edit } = await searchParams;
   const sql = rootSql();
   const all = await sql<Row[]>`
@@ -36,7 +34,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
       (select count(*)::int from forms where property_id = p.id) as forms,
       (select count(*)::int from submissions where property_id = p.id) as subs,
       (select max(s.created_at) from sessions s join users x on x.id = s.user_id where x.property_id = p.id) as last_seen
-    from properties p where p.id <> ${u.property_id}
+    from properties p
     order by case when p.subscription_ends is null then 1 else 0 end, p.subscription_ends, p.name`;
   const withState = all.map((p) => ({ ...p, state: subState(p) }));
   const count = (f: string) => withState.filter((p) => FILTERS.find((x) => x.v === f)!.match(p.state)).length;
@@ -65,7 +63,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   ];
   return (
     <>
-      <PageHeader title="Platform" subtitle="Super Admin · manage hotels, subscriptions and their admin accounts."
+      <PageHeader title="Hotels" subtitle="Every hotel on Velkomo Signa — subscriptions and admin accounts."
         actions={<Link href="/platform/new" className="btn-primary"><Plus className="h-4 w-4" /> New hotel</Link>} />
       {deleted && <div className="mb-4"><Alert kind="success">Hotel {deleted} and all its data were deleted.</Alert></div>}
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">

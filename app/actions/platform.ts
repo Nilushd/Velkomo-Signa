@@ -1,21 +1,17 @@
 "use server";
 import { revalidatePath } from "next/cache";
-import { redirect } from "next/navigation";
 import { randomInt } from "crypto";
 import { z } from "zod";
-import { requireUser, hashPassword, passwordProblem, type SessionUser } from "@/lib/auth";
+import { hashPassword, passwordProblem } from "@/lib/auth";
+import { requirePlatformAdmin, type PlatformAdmin } from "@/lib/platform-auth";
 import { rootSql } from "@/lib/db";
 import { removeObjects } from "@/lib/storage";
 import type { FormState } from "./auth";
 
 /** Platform module: Super Admins only. All reads/writes use the privileged connection (they work across hotels). */
-async function requireSuper() {
-  const u = await requireUser();
-  if (!u.is_super_admin) redirect("/");
-  return u;
-}
+const requireSuper = () => requirePlatformAdmin();
 
-async function log(u: SessionUser, prop: { property_code: string; name: string }, action: string, detail?: string | null) {
+async function log(u: PlatformAdmin, prop: { property_code: string; name: string }, action: string, detail?: string | null) {
   await rootSql()`insert into platform_log (actor_id, actor_name, property_code, property_name, action, detail)
     values (${u.id}, ${u.name}, ${prop.property_code}, ${prop.name}, ${action}, ${detail ?? null})`;
 }
@@ -55,6 +51,7 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
   if (prob) return { error: `Admin password: ${prob}` };
   const sql = rootSql();
   const code = p.data.code.toUpperCase();
+  if (code === "PLATFORM") return { error: "PLATFORM is reserved for Super Admin sign-in. Choose another code." };
   const [ex] = await sql`select 1 from properties where lower(property_code) = lower(${code})`;
   if (ex) return { error: `The property code ${code} is already used.` };
   const hash = await hashPassword(pw);
@@ -86,7 +83,6 @@ export async function setSubscription(id: string, ends: string | null) {
   const u = await requireSuper();
   if (ends !== null && !/^\d{4}-\d{2}-\d{2}$/.test(ends)) return { error: "Choose a valid date." };
   const p = await getProp(id);
-  if (id === u.property_id) return { error: "The platform's own property has no subscription." };
   await rootSql()`update properties set subscription_ends = ${ends} where id = ${id}`;
   await log(u, p, "Subscription end date", `${day(p.ends)} → ${day(ends)}`);
   revalidatePath("/platform");
@@ -96,7 +92,6 @@ export async function setSubscription(id: string, ends: string | null) {
 export async function setHotelActive(id: string, active: boolean) {
   const u = await requireSuper();
   const p = await getProp(id);
-  if (id === u.property_id) return { error: "You can't suspend the platform's own property." };
   await rootSql()`update properties set active = ${active} where id = ${id}`;
   if (!active) await rootSql()`delete from sessions where user_id in (select id from users where property_id = ${id})`;
   await log(u, p, active ? "Resumed hotel" : "Suspended hotel");
@@ -148,7 +143,6 @@ export async function createAdmin(propertyId: string, _: unknown, fd: FormData):
 export async function deleteHotel(id: string, confirmCode: string) {
   const u = await requireSuper();
   const p = await getProp(id);
-  if (id === u.property_id) return { error: "You can't delete the platform's own property." };
   if (confirmCode.trim().toUpperCase() !== p.property_code.toUpperCase()) return { error: `Type ${p.property_code} to confirm.` };
   const sql = rootSql();
   const keys = (await sql<{ k: string }[]>`select storage_key as k from files where property_id = ${id} and storage_key is not null`).map((r) => r.k);
