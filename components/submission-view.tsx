@@ -4,17 +4,23 @@ import type { Detail } from "@/lib/submission-view";
 import type { Field } from "@/lib/types";
 import { formatValue, fmtDate, fileRefs } from "@/lib/format";
 import { StatusBadge } from "./ui";
+import { AttachmentList } from "./attachments";
+import { FileArchive } from "lucide-react";
 
-export function Answers({ schema, data, fileQuery = "" }: { schema: Field[]; data: Record<string, unknown>; fileQuery?: string }) {
+export function Answers({ schema, data, fileQuery = "", submissionId }: { schema: Field[]; data: Record<string, unknown>; fileQuery?: string; submissionId?: string }) {
+  const allFiles = schema.filter((f) => f.type === "file").flatMap((f) => fileRefs(data[f.id]));
   return (
+    <>
+    {submissionId && allFiles.length > 1 && (
+      <div className="mb-1 flex justify-end">
+        <a href={`/api/files/zip?submission=${submissionId}${fileQuery ? `&${fileQuery.slice(1)}` : ""}`} className="btn-secondary btn-sm"><FileArchive className="h-4 w-4" /> Download all attachments ({allFiles.length})</a>
+      </div>)}
     <dl className="divide-y divide-ink-line">
       {schema.map((f) => {
         if (f.type === "heading") return <h3 key={f.id} className="pb-1 pt-4 text-sm font-semibold text-brand-700">{f.label}</h3>;
         const v = data[f.id];
         let out: React.ReactNode = formatValue(f, v) || <span className="text-ink-mute">—</span>;
-        if (f.type === "file" && fileRefs(v).length) out = (
-          <ul className="space-y-1">{fileRefs(v).map((r) => (
-            <li key={r.fileId}><a className="text-brand-700 underline" href={`/api/files/${r.fileId}${fileQuery}`} target="_blank" rel="noreferrer">📎 {r.name}</a></li>))}</ul>);
+        if (f.type === "file" && fileRefs(v).length) out = <AttachmentList files={fileRefs(v)} query={fileQuery} />;
         // eslint-disable-next-line @next/next/no-img-element
         if (f.type === "signature" && typeof v === "string" && v) out = <img src={v} alt="Signature" className="h-20 rounded border border-ink-line bg-white" />;
         return (
@@ -24,6 +30,7 @@ export function Answers({ schema, data, fileQuery = "" }: { schema: Field[]; dat
           </div>);
       })}
     </dl>
+    </>
   );
 }
 

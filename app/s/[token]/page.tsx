@@ -26,7 +26,7 @@ export default async function StatusPage({ params }: { params: Promise<{ token: 
         {canEdit && <RequesterActions submissionId={d.sub.id} token={token} uploadCode={d.form.short_code} title={d.form.title} schema={d.form.schema} theme={d.form.theme} data={d.sub.data} comment={lastReject?.comment} />}
         {d.sub.status === "rejected" && d.sub.submitter_id && <Notice title="Rejected">Sign in to the app to edit and resubmit this request.</Notice>}
         <section className="card p-4"><h2 className="mb-3 font-semibold">Approval progress</h2><Progress d={d} /></section>
-        <section className="card p-4"><h2 className="mb-1 font-semibold">Your answers</h2><Answers schema={d.form.schema} data={d.sub.data} fileQuery={`?s=${token}`} /></section>
+        <section className="card p-4"><h2 className="mb-1 font-semibold">Your answers</h2><Answers schema={d.form.schema} data={d.sub.data} fileQuery={`?s=${token}`} submissionId={d.sub.id} /></section>
         {!d.sub.submitter_id && canChange(d) && <RequestManage submissionId={d.sub.id} refNo={d.sub.ref_no} token={token} rejected={d.sub.status === "rejected"} asAdmin={false} afterDelete={`/f/${d.form.short_code}`} />}
         <section className="card p-4"><h2 className="mb-3 font-semibold">History</h2><History d={d} /></section>
       </div>

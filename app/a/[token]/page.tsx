@@ -33,7 +33,7 @@ export default async function ActionPage({ params, searchParams }: { params: Pro
             <p className="mb-3 text-sm text-ink-mute">Acting as {ap.name} through your personal e-mail link — no login needed.</p>
             <DecisionForm initial={pre === "reject" ? "rejected" : pre === "approve" ? "approved" : null} action={decideByToken.bind(null, token)} />
           </section>)}
-        <section className="card p-4"><h2 className="mb-1 font-semibold">Answers</h2><Answers schema={detail.form.schema} data={detail.sub.data} fileQuery={`?a=${token}`} /></section>
+        <section className="card p-4"><h2 className="mb-1 font-semibold">Answers</h2><Answers schema={detail.form.schema} data={detail.sub.data} fileQuery={`?a=${token}`} submissionId={detail.sub.id} /></section>
         <section className="card p-4"><h2 className="mb-3 font-semibold">Approval progress</h2><Progress d={detail} /></section>
       </div>
     </PublicShell>
