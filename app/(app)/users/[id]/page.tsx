@@ -5,6 +5,7 @@ import { requireAdmin, asUser } from "@/lib/auth";
 import { PageHeader, Alert } from "@/components/ui";
 import { UserForm } from "@/components/user-form";
 import { updateUser, setActive, unlockUser } from "@/app/actions/users";
+import { adminResetTwoFactor } from "@/app/actions/twofa";
 import { UserAccessTable, UserGroups, ResetPasswordForm, RoleSwitches } from "./client";
 import { AccessLegend } from "@/components/access-levels";
 import { DelegationPanel } from "@/components/delegation-panel";
@@ -16,8 +17,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const admin = await requireAdmin();
   const data = await asUser(admin, async (tx) => {
-    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; active: boolean; locked_until: Date | null; must_change_password: boolean }[]>`
-      select id, username, name, email, department, is_admin, can_build_forms, active, locked_until, must_change_password from users where id = ${id}`;
+    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; active: boolean; totp_on: boolean; locked_until: Date | null; must_change_password: boolean }[]>`
+      select id, username, name, email, department, is_admin, can_build_forms, active, (totp_enabled_at is not null) as totp_on, locked_until, must_change_password from users where id = ${id}`;
     if (!u) return null;
     const forms = await tx<{ id: string; title: string; status: string; visibility: string; access: string | null; via_group: string | null }[]>`
       select f.id, f.title, f.status, f.visibility,
@@ -58,6 +59,13 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       </section>
       <div className="grid gap-6 lg:grid-cols-2">
         <section className="card p-5"><h2 className="mb-3 font-semibold">Groups</h2><UserGroups userId={u.id} groups={data.groups} /></section>
+        <section className="card p-5 lg:col-span-2"><h2 className="mb-1 font-semibold">Two-factor authentication</h2>
+          {u.totp_on ? (
+            <div className="flex flex-wrap items-center gap-3 text-sm"><span className="badge bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200">On</span>
+              <span className="flex-1 text-ink-mute">{u.name} signs in with a code from an authenticator app. If they lost their phone and backup codes, turn it off so they can sign in with their password and set it up again.</span>
+              <form action={async () => { "use server"; await adminResetTwoFactor(u.id); }}><button className="btn-secondary btn-sm">Turn off two-factor</button></form></div>
+          ) : <p className="text-sm text-ink-mute">Off. Each person can turn it on in their own Settings.</p>}
+        </section>
         <section className="card p-5"><h2 className="mb-1 font-semibold">Reset password</h2><p className="mb-3 text-sm text-ink-mute">Sets a temporary password. They must change it at next sign-in.</p><ResetPasswordForm userId={u.id} /></section>
       </div>
     </div>

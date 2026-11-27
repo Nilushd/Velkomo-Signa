@@ -9,6 +9,7 @@ Form builder and approval workflow for properties. People design a form (from sc
 | Area | What it does |
 |---|---|
 | **Login** | Property code + username + password · show password · remember property code · one generic error · 5 failed tries lock the account for 15 min · forced password change on first login · forgot-password e-mail (or "contact your admin") |
+| **Two-factor sign-in** | Optional per user, in **Settings → Two-factor authentication**: scan a QR code with any authenticator app (Google / Microsoft Authenticator, Authy…), confirm with a code, get **8 one-time backup codes** (copy / download). Signing in then asks for the 6-digit code after the password (5 tries, 10-minute window, a code can't be used twice). Turning it off or making new backup codes needs a current code. Lost phone → an Admin turns it off from the user's page (also signs them out everywhere). Secrets are stored encrypted (AES-256-GCM), backup codes only as hashes |
 | **Multi-property** | Every table carries `property_id`; Postgres Row Level Security isolates properties. Super Admin creates properties and their first Admin |
 | **Users & permissions** | Admin creates users (username, temp password, name, department, optional e-mail), edits, deactivates, resets passwords, unlocks, groups users, and sets **No / General / Review** access per form from the user's page |
 | **Form builder** | Drag-and-drop field list · text, long text, number, date, dropdown, radio, checkbox, e-mail, phone, file upload, signature, section heading · label / required / placeholder / help / options · desktop/mobile preview · draft → publish |
@@ -101,7 +102,7 @@ Runs against `DATABASE_URL` (migrated + seeded): attachment limits, verification
    DATABASE_URL="postgres://…pooler.supabase.com:6543/postgres" npm run db:migrate
    ```
    For production, create your Super Admin by running the seed, then change its password and deactivate the demo properties from **Properties** — or insert one property and one `is_super_admin` user by SQL.
-3. **Vercel**: import this repo, set the variables from `.env.example` (at least `DATABASE_URL`, `APP_URL`, `CRON_SECRET`, plus e-mail and VAPID keys), deploy.
+3. **Vercel**: import this repo, set the variables from `.env.example` (at least `DATABASE_URL`, `APP_URL`, `CRON_SECRET`, `AUTH_SECRET` (a long random string — keep it unchanged, it encrypts two-factor keys), plus e-mail and VAPID keys), deploy.
 4. `vercel.json` schedules `/api/cron/reminders` daily at 03:00 UTC (sends reminders, cleans expired sessions).
 5. Generate push keys with `npx web-push generate-vapid-keys`.
 6. Turn on Supabase's daily backups (Database → Backups).

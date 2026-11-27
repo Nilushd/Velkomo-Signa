@@ -1,7 +1,7 @@
 "use server";
 import { redirect } from "next/navigation";
 import { rootSql } from "@/lib/db";
-import { login, logout, getSession, hashPassword, passwordProblem, createSession } from "@/lib/auth";
+import { login, logout, getSession, hashPassword, passwordProblem, createSession, completeTwoFactor } from "@/lib/auth";
 import bcrypt from "bcryptjs";
 import { randomToken, sha256 } from "@/lib/crypto";
 import { sendEmail, emailLayout } from "@/lib/email";
@@ -15,7 +15,19 @@ export async function loginAction(_: FormState, fd: FormData): Promise<FormState
   const r = await login(String(fd.get("property") ?? ""), String(fd.get("username") ?? ""), String(fd.get("password") ?? ""));
   if (!r.ok) return { error: r.error };
   const next = String(fd.get("next") ?? "");
-  redirect(r.mustChange ? "/change-password" : next.startsWith("/") && !next.startsWith("//") ? next : "/");
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  if (r.twoFactor) redirect(`/login/2fa?next=${encodeURIComponent(safeNext)}`);
+  redirect(r.mustChange ? "/change-password" : safeNext);
+}
+
+export async function twoFactorAction(_: FormState, fd: FormData): Promise<FormState> {
+  if (!(await rateLimit(`2fa:${await clientIp()}`, 30, 600))) return { error: "Too many attempts. Try again in a few minutes." };
+  const r = await completeTwoFactor(String(fd.get("code") ?? ""));
+  if (!r.ok) { if (r.restart) redirect("/login?expired=1"); return { error: r.error }; }
+  const next = String(fd.get("next") ?? "");
+  const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
+  if (r.usedBackup) redirect(`/settings?backup=${r.backupLeft}#two-factor`);
+  redirect(r.mustChange ? "/change-password" : safeNext);
 }
 
 export async function logoutAction() {

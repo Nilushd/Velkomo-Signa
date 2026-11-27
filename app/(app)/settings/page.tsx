@@ -3,6 +3,9 @@ import { requireUser, asUser } from "@/lib/auth";
 import { loadDelegations, approvableForms } from "@/lib/delegation";
 import { DelegationPanel } from "@/components/delegation-panel";
 import { EmailPref } from "@/components/email-pref";
+import { TwoFactorPanel } from "@/components/two-factor-panel";
+import { rootSql } from "@/lib/db";
+import { Alert } from "@/components/ui";
 import { storageUsage } from "@/lib/housekeeping";
 import { usesObjectStorage } from "@/lib/storage";
 import { PageHeader } from "@/components/ui";
@@ -11,8 +14,10 @@ import { PropertyForm } from "./property-form";
 
 export const metadata = { title: "Settings" };
 
-export default async function Settings() {
+export default async function Settings({ searchParams }: { searchParams: Promise<{ backup?: string }> }) {
   const u = await requireUser();
+  const { backup } = await searchParams;
+  const [tf] = await rootSql()<{ n: number | null }[]>`select cardinality(recovery_codes) as n from users where id = ${u.id}`;
   const { people, dl, forms } = await asUser(u, async (tx) => ({
     people: await tx<{ id: string; name: string; department: string | null }[]>`select id, name, department from users where active order by name`,
     dl: await loadDelegations(tx, u.id),
@@ -32,6 +37,11 @@ export default async function Settings() {
           <div><dt className="text-ink-mute">Property</dt><dd>{u.property_name} ({u.property_code})</dd></div>
         </dl>
         <div className="mt-4 flex flex-wrap gap-2"><Link href="/change-password" className="btn-secondary">Change password</Link></div>
+      </section>
+      {backup !== undefined && <Alert kind="info">You signed in with a backup code. {backup} left — make new ones below if you&apos;re running low.</Alert>}
+      <section className="card space-y-3 p-5" id="two-factor">
+        <div><h2 className="font-semibold">Two-factor authentication</h2><p className="text-sm text-ink-mute">Extra protection when signing in.</p></div>
+        <TwoFactorPanel enabled={u.totp_enabled} backupLeft={u.totp_enabled ? tf?.n ?? 0 : null} />
       </section>
       <section className="card space-y-3 p-5" id="notifications">
         <div><h2 className="font-semibold">Notifications</h2><p className="text-sm text-ink-mute">How approval requests reach you.</p></div>
