@@ -91,12 +91,13 @@ export async function withdrawRequest(submissionId: string, token?: string) {
 export async function decideInApp(approvalId: string, decision: "approved" | "rejected", comment: string) {
   const u = await getSession();
   if (!u || u.must_change_password) return { ok: false as const, error: "Please sign in again." };
-  const [a] = await rootSql()<{ approver_user_id: string; form_id: string; owner_id: string | null; property_id: string }[]>`
-    select a.approver_user_id, s.form_id, f.owner_id, a.property_id from approvals a join submissions s on s.id = a.submission_id join forms f on f.id = s.form_id
+  const [a] = await rootSql()<{ approver_user_id: string; form_id: string; owner_id: string | null; property_id: string; on_behalf_of: string | null }[]>`
+    select a.approver_user_id, s.form_id, f.owner_id, a.property_id, a.on_behalf_of from approvals a join submissions s on s.id = a.submission_id join forms f on f.id = s.form_id
     where a.id = ${approvalId}`;
   if (!a || a.property_id !== u.property_id || a.approver_user_id !== u.id) return { ok: false as const, error: "This approval isn't assigned to you." };
   const acc = await tenant({ propertyId: u.property_id, userId: null }, (tx) => formAccess(tx, { id: u.id, is_admin: false }, { id: a.form_id, owner_id: null }));
-  if (!canApprove(acc)) return { ok: false as const, error: "You no longer have Approval access to this form." };
+  // a delegate acts on the away approver's authority, so they don't need Approval access of their own
+  if (!a.on_behalf_of && !canApprove(acc)) return { ok: false as const, error: "You no longer have Approval access to this form." };
   return decide(u.property_id, approvalId, decision, comment, { userId: u.id, name: u.name, via: "app" });
 }
 

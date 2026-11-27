@@ -64,6 +64,7 @@ const ACTIONS: Record<string, { label: string; icon: React.ComponentType<{ class
   level_skipped: { label: "Level skipped", icon: MinusCircle, cls: "text-ink-mute" },
   approved: { label: "Request approved", icon: Flag, cls: "text-emerald-600" },
   withdrawn: { label: "Withdrawn", icon: Undo2, cls: "text-ink-mute" },
+  forwarded: { label: "Forwarded", icon: Send, cls: "text-amber-500" },
 };
 
 export function History({ d }: { d: Detail }) {
@@ -71,13 +72,14 @@ export function History({ d }: { d: Detail }) {
     <ol className="relative space-y-4 border-l border-ink-line pl-5">
       {d.audit.map((e, i) => {
         const a = ACTIONS[e.action] ?? { label: e.action, icon: Clock, cls: "text-ink-mute" };
-        const det = e.detail as { level?: number; step?: string; comment?: string; approvers?: string[]; version?: number; via?: string };
+        const det = e.detail as { level?: number; step?: string; comment?: string; approvers?: string[]; version?: number; via?: string; to?: string; note?: string };
         return (
           <li key={i} className="relative text-sm">
             <a.icon className={clsx("absolute -left-[29px] top-0.5 h-4 w-4 bg-white", a.cls)} />
             <p><span className="font-medium">{a.label}</span>{det.step ? ` — ${det.step}` : ""}{det.version && det.version > 1 && e.action !== "level_started" ? ` (v${det.version})` : ""}</p>
             <p className="text-xs text-ink-mute">{e.actor}{det.via === "email" ? " · by e-mail" : ""} · {fmtDate(e.created_at)}</p>
             {det.approvers && <p className="text-xs text-ink-mute">Approvers: {det.approvers.join(", ")}</p>}
+            {det.to && <p className="text-xs text-ink-mute">To {det.to}{det.note ? ` — ${det.note}` : ""}</p>}
             {det.comment && <p className="mt-1 text-ink-soft">“{det.comment}”</p>}
           </li>);
       })}

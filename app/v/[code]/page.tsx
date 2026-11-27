@@ -36,7 +36,7 @@ export default async function VerifyResult({ params }: { params: Promise<{ code:
   }
   const steps = await rootSql()<{ level: number; name: string }[]>`select level, name from approval_steps where form_id = ${s.form_id} order by level`;
   const decisions = await rootSql()<{ level: number; step_name: string; approver: string; decision: string; decided_at: Date }[]>`
-    select a.level, a.step_name, u.name as approver, a.decision, a.decided_at from approvals a join users u on u.id = a.approver_user_id
+    select a.level, a.step_name, u.name || coalesce(' (for ' || ob.name || ')', '') as approver, a.decision, a.decided_at from approvals a join users u on u.id = a.approver_user_id left join users ob on ob.id = a.on_behalf_of
     where a.submission_id = ${s.id} and a.version = ${s.version} and a.decision in ('approved','rejected') order by a.level`;
   const logo = headerLogo(s.theme, s.plogo) ?? s.plogo;
   const ok = s.status === "approved";

@@ -11,6 +11,7 @@ import { summaryRows } from "./format";
 import { appUrl } from "./env";
 import { approverIds } from "./access";
 import { runEffects, type Effect } from "./effects";
+import { coverFor } from "./delegation";
 import type { FormRow, SubmissionRow } from "./types";
 
 export const TOKEN_DAYS = 7;
@@ -57,17 +58,17 @@ async function levelApprovers(tx: Sql, stepId: string, formId: string) {
 
 export async function approvalEmail(ctx: { propertyName: string; propertyId: string }, opts: {
   to: string; form: Pick<FormRow, "title" | "schema">; sub: Pick<SubmissionRow, "ref_no" | "data" | "submitter_name" | "version">;
-  stepName: string; token: string; reminder?: boolean;
+  stepName: string; token: string; reminder?: boolean; onBehalfOf?: string;
 }) {
   const base = `${appUrl()}/a/${opts.token}`;
   return {
     to: opts.to,
     propertyId: ctx.propertyId,
-    subject: `${opts.reminder ? "Reminder: " : ""}Approval needed: ${opts.form.title} (${opts.sub.ref_no})`,
+    subject: `${opts.reminder ? "Reminder: " : ""}Approval needed: ${opts.form.title} (${opts.sub.ref_no})${opts.onBehalfOf ? ` — for ${opts.onBehalfOf}` : ""}`,
     html: emailLayout({
       propertyName: ctx.propertyName,
       title: `${opts.reminder ? "Reminder — " : ""}${opts.form.title} needs your approval`,
-      intro: `${opts.sub.submitter_name || "A requester"} submitted ${opts.sub.ref_no}${opts.sub.version > 1 ? ` (version ${opts.sub.version})` : ""}. Step: ${opts.stepName}.`,
+      intro: `${opts.onBehalfOf ? `You're covering for ${opts.onBehalfOf} while they are away. ` : ""}${opts.sub.submitter_name || "A requester"} submitted ${opts.sub.ref_no}${opts.sub.version > 1 ? ` (version ${opts.sub.version})` : ""}. Step: ${opts.stepName}.`,
       rows: summaryRows(opts.form.schema, opts.sub.data),
       buttons: [
         { label: "Approve", url: `${base}?d=approve`, color: "#047857" },
@@ -90,25 +91,32 @@ async function startLevel(ctx: Ctx, form: FormRow, sub: SubmissionRow, level: nu
     await audit(tx, sub, { userId: null, name: "System", via: "system" }, "level_skipped", { level: step.level, step: step.name, reason: "no approvers with Approval access" });
     return startLevel(ctx, form, sub, step.level + 1, steps);
   }
+  // out of office: send to whoever is covering; one row per person even if they cover for several
+  const targets: { id: string; name: string; email: string | null; forId: string | null; forName: string | null; delegationId: string | null }[] = [];
   for (const p of people) {
+    const c = await coverFor(tx, p.id);
+    const t = c ? { id: c.userId, name: c.name, email: c.email, forId: p.id, forName: p.name, delegationId: c.delegationId } : { ...p, forId: null, forName: null, delegationId: null };
+    if (!targets.some((x) => x.id === t.id)) targets.push(t);
+  }
+  for (const p of targets) {
     const [ap] = await tx<{ id: string }[]>`
-      insert into approvals (property_id, submission_id, level, step_name, version, approver_user_id)
-      values (${sub.property_id}, ${sub.id}, ${step.level}, ${step.name}, ${sub.version}, ${p.id}) returning id`;
+      insert into approvals (property_id, submission_id, level, step_name, version, approver_user_id, on_behalf_of, delegation_id)
+      values (${sub.property_id}, ${sub.id}, ${step.level}, ${step.name}, ${sub.version}, ${p.id}, ${p.forId}, ${p.delegationId}) returning id`;
     const wantsEmail = step.channel !== "app" && !!p.email;
     const wantsApp = step.channel !== "email" || !p.email; // fall back to the app if the user has no e-mail
     if (wantsEmail) {
       const token = randomToken();
       await tx`insert into action_tokens (property_id, approval_id, token_hash, expires_at)
         values (${sub.property_id}, ${ap.id}, ${sha256(token)}, now() + make_interval(days => ${TOKEN_DAYS}))`;
-      ctx.effects.push({ kind: "email", mail: await approvalEmail({ propertyName: ctx.propertyName, propertyId: sub.property_id }, { to: p.email!, form, sub, stepName: step.name, token }) });
+      ctx.effects.push({ kind: "email", mail: await approvalEmail({ propertyName: ctx.propertyName, propertyId: sub.property_id }, { to: p.email!, form, sub, stepName: step.name, token, onBehalfOf: p.forName ?? undefined }) });
     }
     if (wantsApp) {
       ctx.effects.push({ kind: "notify", propertyId: sub.property_id, userId: p.id, push: true,
-        title: `Approval needed: ${form.title}`, body: `${sub.ref_no} · ${step.name}`, url: `/approvals/${ap.id}` });
+        title: `Approval needed: ${form.title}${p.forName ? ` (for ${p.forName})` : ""}`, body: `${sub.ref_no} · ${step.name}`, url: `/approvals/${ap.id}` });
     }
   }
   await audit(tx, sub, { userId: null, name: "System", via: "system" }, "level_started",
-    { level: step.level, step: step.name, approvers: people.map((p) => p.name), channel: step.channel });
+    { level: step.level, step: step.name, approvers: targets.map((p) => (p.forName ? `${p.name} (for ${p.forName})` : p.name)), channel: step.channel });
 }
 
 async function finalizeApproved(ctx: Ctx, form: FormRow, sub: SubmissionRow) {
@@ -211,8 +219,8 @@ export async function decide(propertyId: string, approvalId: string, decision: "
     if (!a0) return { ok: false, error: "Approval not found." };
     // lock the submission: concurrent approvers on the same level queue up here
     const [sub] = await tx<SubmissionRow[]>`select * from submissions where id = ${a0.submission_id} for update`;
-    const [ap] = await tx<{ id: string; level: number; version: number; decision: string; closed_note: string | null; approver_user_id: string; step_name: string }[]>`
-      select * from approvals where id = ${approvalId}`;
+    const [ap] = await tx<{ id: string; level: number; version: number; decision: string; closed_note: string | null; approver_user_id: string; step_name: string; for_name: string | null }[]>`
+      select a.*, ob.name as for_name from approvals a left join users ob on ob.id = a.on_behalf_of where a.id = ${approvalId}`;
     if (ap.decision !== "pending") {
       const by = ap.decision === "closed" ? (ap.closed_note ?? "").replace(/^Handled by /, "") : "you";
       return { ok: false, error: `Already handled by ${by}.`, handledBy: by };
@@ -223,6 +231,7 @@ export async function decide(propertyId: string, approvalId: string, decision: "
     }
     const ctx = await loadCtx(tx, propertyId);
     const form = await loadForm(tx, sub.form_id);
+    if (ap.for_name) actor = { ...actor, name: `${actor.name} (for ${ap.for_name})` };
     await tx`update approvals set decision = ${decision}, comment = ${comment}, decided_at = now() where id = ${ap.id}`;
     await tx`update approvals set decision = 'closed', closed_note = ${"Handled by " + actor.name}, decided_at = now()
       where submission_id = ${sub.id} and level = ${ap.level} and version = ${ap.version} and decision = 'pending'`;

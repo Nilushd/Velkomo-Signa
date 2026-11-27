@@ -14,8 +14,8 @@ export default async function ApprovalDetail({ params }: { params: Promise<{ id:
   const { id } = await params;
   const u = await requireUser();
   const r = await asUser(u, async (tx) => {
-    const [a] = await tx<{ id: string; submission_id: string; level: number; step_name: string; version: number; decision: string; closed_note: string | null; approver_user_id: string }[]>`
-      select * from approvals where id = ${id}`;
+    const [a] = await tx<{ id: string; submission_id: string; level: number; step_name: string; version: number; decision: string; closed_note: string | null; approver_user_id: string; for_name: string | null }[]>`
+      select a.*, (select name from users where id = a.on_behalf_of) as for_name from approvals a where a.id = ${id}`;
     if (!a || a.approver_user_id !== u.id) return null;
     return { a, d: await loadDetail(tx, a.submission_id) };
   });
@@ -34,6 +34,7 @@ export default async function ApprovalDetail({ params }: { params: Promise<{ id:
       <SummaryCard d={d} />
       <section className="card p-4">
         <h2 className="mb-3 font-semibold">Level {a.level}: {a.step_name}</h2>
+        {a.for_name && <div className="mb-3 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 ring-1 ring-amber-200">You&apos;re approving <b>for {a.for_name}</b>, who is out of office. Your decision is recorded as “{u.name} (for {a.for_name})”.</div>}
         {live ? <DecisionForm initial={null} action={decideInApp.bind(null, a.id)} backHref="/approvals" /> :
           <Alert kind="info">{a.decision === "closed" ? (a.closed_note ?? "Closed") : a.decision === "pending" ? "This request is no longer waiting for this decision." : `You ${a.decision} this request.`}</Alert>}
       </section>
