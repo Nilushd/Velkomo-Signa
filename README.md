@@ -8,7 +8,7 @@ Form builder and approval workflow for properties. People design a form (from sc
 
 | Area | What it does |
 |---|---|
-| **Login** | Property code + username + password · show password · remember property code · one generic error · 5 failed tries lock the account for 15 min · forced password change on first login · forgot-password e-mail (or "contact your admin") |
+| **Login** | Property code + username + password · show password · **property code saved automatically** on the device after the first successful sign-in (shown as the hotel name with a **Change** link) · username kept after a wrong password · one generic error · 5 failed tries lock the account for 15 min · forced password change on first login · forgot-password e-mail (or "contact your admin") |
 | **Two-factor sign-in** | Optional per user, in **Settings → Two-factor authentication**: scan a QR code with any authenticator app (Google / Microsoft Authenticator, Authy…), confirm with a code, get **8 one-time backup codes** (copy / download). Signing in then asks for the 6-digit code after the password (5 tries, 10-minute window, a code can't be used twice). Turning it off or making new backup codes needs a current code. Lost phone → an Admin turns it off from the user's page (also signs them out everywhere). Secrets are stored encrypted (AES-256-GCM), backup codes only as hashes |
 | **Multi-property** | Every table carries `property_id`; Postgres Row Level Security isolates properties. Super Admin creates properties and their first Admin |
 | **Users & permissions** | Admin creates users (username, temp password, name, department, optional e-mail), edits, deactivates, resets passwords, unlocks, groups users, and sets **No / General / Review** access per form from the user's page |

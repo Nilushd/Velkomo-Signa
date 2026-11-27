@@ -1,5 +1,6 @@
 "use server";
 import { redirect } from "next/navigation";
+import { cookies } from "next/headers";
 import { rootSql } from "@/lib/db";
 import { login, logout, getSession, hashPassword, passwordProblem, createSession, completeTwoFactor } from "@/lib/auth";
 import bcrypt from "bcryptjs";
@@ -8,12 +9,16 @@ import { sendEmail, emailLayout } from "@/lib/email";
 import { appUrl } from "@/lib/env";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 
+const PROPERTY_COOKIE = "signa_property";
+
 export type FormState = { error?: string; ok?: string } | undefined;
 
 export async function loginAction(_: FormState, fd: FormData): Promise<FormState> {
   if (!(await rateLimit(`login:${await clientIp()}`, 30, 600))) return { error: "Too many attempts. Try again in a few minutes." };
   const r = await login(String(fd.get("property") ?? ""), String(fd.get("username") ?? ""), String(fd.get("password") ?? ""));
   if (!r.ok) return { error: r.error };
+  // Remember the property code on this device once a sign-in succeeds (changeable on the login page).
+  (await cookies()).set(PROPERTY_COOKIE, String(fd.get("property") ?? "").trim().toUpperCase(), { httpOnly: true, sameSite: "lax", path: "/", maxAge: 400 * 86400, secure: process.env.NODE_ENV === "production" });
   const next = String(fd.get("next") ?? "");
   const safeNext = next.startsWith("/") && !next.startsWith("//") ? next : "/";
   if (r.twoFactor) redirect(`/login/2fa?next=${encodeURIComponent(safeNext)}`);
