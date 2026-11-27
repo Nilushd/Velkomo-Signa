@@ -40,7 +40,7 @@ export default async function UserPage({ params, searchParams }: { params: Promi
       <PageHeader title={u.name} subtitle={`@${u.username}${u.active ? "" : " · inactive"}`}
         actions={u.id !== admin.id ? <form action={setActive.bind(null, u.id, !u.active)}><button className={u.active ? "btn-secondary" : "btn-primary"}>{u.active ? "Deactivate" : "Reactivate"}</button></form> : undefined} />
       {(await searchParams).created && <Alert kind="success">User created. You can change their permissions and form access below at any time.</Alert>}
-      {locked && <div className="flex items-center gap-3"><Alert kind="warn">Locked after 5 failed sign-ins until {u.locked_until!.toLocaleTimeString()}.</Alert><form action={unlockUser.bind(null, u.id)}><button className="btn-secondary btn-sm">Unlock now</button></form></div>}
+      {locked && <div className="flex items-center gap-3"><Alert kind="warn">Locked after 5 failed sign-ins until {u.locked_until!.toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: admin.time_zone })}.</Alert><form action={unlockUser.bind(null, u.id)}><button className="btn-secondary btn-sm">Unlock now</button></form></div>}
       <section className="card p-5"><h2 className="mb-4 font-semibold">Details</h2><UserForm action={updateUser.bind(null, u.id)} user={u} /></section>
       <section className="card space-y-5 p-5" id="permissions">
         <div><h2 className="font-semibold">Permissions</h2><p className="text-sm text-ink-mute">Changes save as soon as you make them.</p></div>

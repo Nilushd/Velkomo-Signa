@@ -18,9 +18,9 @@ export default async function VerifyResult({ params }: { params: Promise<{ code:
   const code = (await params).code.toUpperCase();
   const limited = !(await rateLimit(`verify:${await clientIp()}`, 60, 600));
   const [s] = limited ? [] : await rootSql()<{ id: string; ref_no: string; version: number; status: string; data: unknown; created_at: Date; updated_at: Date; submitter: string;
-    title: string; theme: Theme; form_id: string; pname: string; plogo: string | null }[]>`
+    title: string; theme: Theme; form_id: string; pname: string; plogo: string | null; tz: string }[]>`
     select s.id, s.ref_no, s.version, s.status, s.data, s.created_at, s.updated_at, f.title, f.theme, f.id as form_id,
-      coalesce(u.name, s.submitter_name, 'Public requester') as submitter, p.name as pname, p.logo_file_id as plogo
+      coalesce(u.name, s.submitter_name, 'Public requester') as submitter, p.name as pname, p.logo_file_id as plogo, p.time_zone as tz
     from submissions s join forms f on f.id = s.form_id join properties p on p.id = s.property_id left join users u on u.id = s.submitter_id
     where s.verify_code = ${code} and p.active`;
   if (!s) {
@@ -60,8 +60,8 @@ export default async function VerifyResult({ params }: { params: Promise<{ code:
             <dt className="text-ink-mute">Document No.</dt><dd className="font-mono font-semibold">{s.ref_no}{s.version > 1 ? ` · version ${s.version}` : ""}</dd>
             <dt className="text-ink-mute">Status</dt><dd><StatusBadge status={s.status} /></dd>
             <dt className="text-ink-mute">Submitted by</dt><dd>{s.submitter}</dd>
-            <dt className="text-ink-mute">Submitted on</dt><dd>{fmtDate(s.created_at)}</dd>
-            <dt className="text-ink-mute">Last updated</dt><dd>{fmtDate(s.updated_at)}</dd>
+            <dt className="text-ink-mute">Submitted on</dt><dd>{fmtDate(s.created_at, true, s.tz)}</dd>
+            <dt className="text-ink-mute">Last updated</dt><dd>{fmtDate(s.updated_at, true, s.tz)}</dd>
             <dt className="text-ink-mute">Fingerprint</dt><dd className="font-mono text-xs">{fingerprint(s.ref_no, s.version, s.data)}</dd>
           </dl>
           <p className="mt-2 text-xs text-ink-mute">The fingerprint must match the one printed at the bottom of the document. If it differs, the paper copy is out of date or has been altered.</p>
@@ -75,7 +75,7 @@ export default async function VerifyResult({ params }: { params: Promise<{ code:
               return (<li key={st.level} className="flex gap-3 text-sm">
                 <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${d?.decision === "approved" ? "text-emerald-600" : d?.decision === "rejected" ? "text-red-600" : "text-ink-line"}`} />
                 <div><p className="font-medium">Level {st.level}: {st.name}</p>
-                  <p className="text-ink-mute">{d ? `${d.decision === "approved" ? "Approved" : "Rejected"} by ${d.approver} · ${fmtDate(d.decided_at)}` : "No decision"}</p></div></li>);
+                  <p className="text-ink-mute">{d ? `${d.decision === "approved" ? "Approved" : "Rejected"} by ${d.approver} · ${fmtDate(d.decided_at, true, s.tz)}` : "No decision"}</p></div></li>);
             })}</ol>}
         </div>
         <p className="text-center text-xs text-ink-mute"><Link href="/verify" className="hover:text-ink">Verify another document</Link></p>

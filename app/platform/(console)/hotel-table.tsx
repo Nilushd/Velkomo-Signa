@@ -7,12 +7,12 @@ import { SubscriptionPanel, HotelDetails, AdminAccounts, DangerZone, PlanPanel }
 
 export type HotelRow = {
   id: string; property_code: string; name: string; notes: string | null; active: boolean; ends: string | null; endsLabel: string | null; days_left: number | null;
-  state: SubState; users: number; forms: number; activeForms: number; limit: number | null; subs: number; last_seen: string | null; storage: string;
+  state: SubState; users: number; forms: number; activeForms: number; limit: number | null; tz: string; tzLabel: string; subs: number; last_seen: string | null; storage: string;
   admins: { id: string; username: string; name: string; email: string | null; active: boolean; must_change_password: boolean; locked: boolean; totp: boolean; last_seen: string | null }[];
 };
 
 /** Hotels list; "Edit" opens everything for that hotel in a side panel on the same page. */
-export function HotelTable({ rows, initialEdit }: { rows: HotelRow[]; initialEdit?: string }) {
+export function HotelTable({ rows, initialEdit, zones }: { rows: HotelRow[]; initialEdit?: string; zones: { value: string; label: string }[] }) {
   const [editId, setEditId] = useState<string | null>(initialEdit ?? null);
   const router = useRouter();
   const h = rows.find((r) => r.id === editId) ?? null;
@@ -31,7 +31,7 @@ export function HotelTable({ rows, initialEdit }: { rows: HotelRow[]; initialEdi
             {rows.length === 0 && <tr><td colSpan={8} className="py-8 text-center text-ink-mute">No hotels here.</td></tr>}
             {rows.map((p) => (
               <tr key={p.id}>
-                <td><p className="font-medium">{p.name}</p><p className="font-mono text-xs text-ink-mute">{p.property_code}</p></td>
+                <td><p className="font-medium">{p.name}</p><p className="text-xs text-ink-mute"><span className="font-mono">{p.property_code}</span> · {p.tzLabel}</p></td>
                 <td><SubBadge state={p.state} daysLeft={p.days_left} /></td>
                 <td className="whitespace-nowrap">{p.endsLabel ?? <span className="text-ink-mute">—</span>}</td>
                 <td className="text-sm">{p.admins.length ? <span className="font-mono">{p.admins.map((a) => a.username).join(", ")}</span> : <span className="text-red-600">no admin</span>}</td>
@@ -59,7 +59,7 @@ export function HotelTable({ rows, initialEdit }: { rows: HotelRow[]; initialEdi
               <AdminAccounts key={`a-${h.id}`} propertyId={h.id} code={h.property_code} admins={h.admins} />
               <section className="flex flex-wrap items-center justify-between gap-2 text-sm"><span className="text-ink-soft">Contract, rate and bills for this hotel</span>
                 <a href={`/platform/billing?contract=${h.id}`} className="btn-secondary btn-sm">Contract &amp; billing</a></section>
-              <HotelDetails key={`d-${h.id}`} id={h.id} name={h.name} notes={h.notes ?? ""} />
+              <HotelDetails key={`d-${h.id}`} id={h.id} name={h.name} notes={h.notes ?? ""} tz={h.tz} zones={zones} />
               <DangerZone id={h.id} code={h.property_code} name={h.name} counts={{ users: h.users, forms: h.forms, subs: h.subs }} onDeleted={() => setEditId(null)} />
             </div>
           </div>

@@ -33,14 +33,14 @@ export default async function Approvals({ searchParams }: { searchParams: Promis
       </div>
       {tab === "pending" ? (
         <PendingList rows={rows.map((r) => ({ id: r.id, ref_no: r.ref_no, title: r.title, form_id: r.form_id, submitter: r.submitter, level: r.level, step_name: r.step_name,
-          created: fmtDate(r.created_at), for_name: r.for_name, summary: summaryRows(r.schema, r.data, 3).map(([k, v]) => [k, v.length > 60 ? v.slice(0, 57) + "…" : v] as [string, string]) }))} />
+          created: fmtDate(r.created_at, true, u.time_zone), for_name: r.for_name, summary: summaryRows(r.schema, r.data, 3).map(([k, v]) => [k, v.length > 60 ? v.slice(0, 57) + "…" : v] as [string, string]) }))} />
       ) : rows.length === 0 ? <Empty title="Nothing here yet" /> :
         <ul className="space-y-2">{rows.map((r) => (
           <li key={r.id}><Link href={`/approvals/${r.id}`} className="card flex flex-wrap items-center gap-3 p-4 transition hover:border-brand-300">
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{r.title}{r.for_name && <span className="badge ml-2 bg-amber-50 align-middle text-amber-900 ring-1 ring-amber-200">for {r.for_name}</span>}</p>
               <p className="text-sm text-ink-mute"><span className="font-mono">{r.ref_no}</span> · {r.submitter} · Level {r.level}: {r.step_name}</p>
-              {<p className="text-xs text-ink-mute">{r.decision === "closed" ? (r.closed_note ?? "Closed") : r.decision === "pending" ? "No longer waiting" : `You ${r.decision}`} · {fmtDate(r.decided_at ?? r.created_at)}</p>}
+              {<p className="text-xs text-ink-mute">{r.decision === "closed" ? (r.closed_note ?? "Closed") : r.decision === "pending" ? "No longer waiting" : `You ${r.decision}`} · {fmtDate(r.decided_at ?? r.created_at, true, u.time_zone)}</p>}
             </div>
             <StatusBadge status={r.sub_status} />
           </Link></li>))}</ul>}

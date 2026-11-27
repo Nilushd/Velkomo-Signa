@@ -11,7 +11,7 @@ function plus(months: number) {
   return d.toISOString().slice(0, 10);
 }
 
-export function NewHotelForm() {
+export function NewHotelForm({ zones }: { zones: { value: string; label: string }[] }) {
   const [state, run] = useActionState(createHotel, undefined);
   const [ends, setEnds] = useState(plus(12));
   const [code, setCode] = useState("");
@@ -42,6 +42,9 @@ export function NewHotelForm() {
           </div>
           <p className="help">The hotel can use the app up to and including this day. After it, nobody at the hotel can sign in and its public forms close — nothing is deleted.</p>
         </div>
+        <div><label className="label" htmlFor="tz">Time zone</label>
+          <select id="tz" name="tz" className="input" defaultValue="Asia/Colombo" required>{zones.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}</select>
+          <p className="help">The hotel&apos;s local time. All dates and times, printouts and PDFs, out-of-office dates, the subscription end and daily billing follow it.</p></div>
         <div><label className="label" htmlFor="limit">Form types allowed</label>
           <input id="limit" name="limit" type="number" min={0} max={9999} className="input w-48" placeholder="Unlimited" defaultValue="5" />
           <p className="help">How many different forms (e.g. Leave Request, Purchase Requisition) the hotel can have enabled at once. Submissions are unlimited. Leave empty for no limit.</p></div>

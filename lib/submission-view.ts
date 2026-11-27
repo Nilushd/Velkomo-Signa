@@ -1,4 +1,4 @@
-import type { Sql } from "./db";
+import { rootSql, type Sql } from "./db";
 import type { FormRow, SubmissionRow } from "./types";
 
 export interface Detail {
@@ -8,6 +8,8 @@ export interface Detail {
   audit: { actor: string; action: string; detail: Record<string, unknown>; created_at: Date }[];
   versions: { version: number; data: Record<string, unknown>; created_at: Date }[];
   steps: { level: number; name: string }[];
+  /** the hotel's time zone — every date on the page, printout and PDF is shown in it */
+  tz: string;
 }
 
 export async function loadDetail(tx: Sql, submissionId: string): Promise<Detail | null> {
@@ -23,7 +25,8 @@ export async function loadDetail(tx: Sql, submissionId: string): Promise<Detail 
   const audit = await tx<Detail["audit"]>`select actor, action, detail, created_at from audit_log where submission_id = ${sub.id} order by created_at, id`;
   const versions = await tx<Detail["versions"]>`select version, data, created_at from submission_versions where submission_id = ${sub.id} order by version`;
   const steps = await tx<Detail["steps"]>`select level, name from approval_steps where form_id = ${form.id} order by level`;
-  return { sub, form, approvals, audit, versions, steps };
+  const [p] = await rootSql()<{ tz: string }[]>`select time_zone as tz from properties where id = ${sub.property_id}`;
+  return { sub, form, approvals, audit, versions, steps, tz: p?.tz ?? "UTC" };
 }
 
 /** Cancel / delete is allowed before any approver has acted on the current version, or after a rejection. */

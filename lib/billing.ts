@@ -76,6 +76,6 @@ export async function computeBilling(from: string, to: string) {
 /** Cron: record today's active forms (the trigger records publishes; this covers forms that stay published). */
 export async function recordFormUsage() {
   const r = await rootSql()`insert into form_usage (property_id, form_id, day, title)
-    select property_id, id, current_date, title from forms where status = 'published' on conflict (form_id, day) do nothing`;
+    select property_id, id, signa_today(property_id), title from forms where status = 'published' on conflict (form_id, day) do nothing`;
   return r.count;
 }

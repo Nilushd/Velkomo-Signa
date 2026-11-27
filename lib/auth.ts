@@ -31,6 +31,7 @@ export interface SessionUser {
   property_logo: string | null;
   subscription_ends: string | null;
   subscription_days_left: number | null;
+  time_zone: string;
 }
 
 export function hashPassword(pw: string) {
@@ -156,10 +157,10 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
     select u.id, u.property_id, u.username, u.name, u.email, u.department, u.is_admin, u.is_super_admin,
            u.can_build_forms, u.can_use_studio, u.can_use_ai, u.email_approvals, (u.totp_enabled_at is not null) as totp_enabled, u.must_change_password,
            p.property_code, p.name as property_name, p.logo_file_id as property_logo,
-           to_char(p.subscription_ends, 'YYYY-MM-DD') as subscription_ends, (p.subscription_ends - current_date)::int as subscription_days_left
+           to_char(p.subscription_ends, 'YYYY-MM-DD') as subscription_ends, (p.subscription_ends - signa_today(p.id))::int as subscription_days_left, p.time_zone
     from sessions s join users u on u.id = s.user_id join properties p on p.id = u.property_id
     where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active
-      and (p.subscription_ends is null or p.subscription_ends >= current_date)`;
+      and (p.subscription_ends is null or p.subscription_ends >= signa_today(p.id))`;
   return u ?? null;
 });
 

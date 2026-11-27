@@ -136,15 +136,15 @@ async function renderOne(w: Writer, item: PdfItem, printedBy: string) {
   w.y -= 16;
 
   // ---- who / when + status stamp
-  const meta: [string, string][] = [["Submitted by", sub.submitter ?? ""], ["Submitted on", fmtDate(sub.created_at)]];
-  if (sub.version > 1) meta.push(["Last revised", fmtDate(sub.updated_at)]);
+  const meta: [string, string][] = [["Submitted by", sub.submitter ?? ""], ["Submitted on", fmtDate(sub.created_at, true, d.tz)]];
+  if (sub.version > 1) meta.push(["Last revised", fmtDate(sub.updated_at, true, d.tz)]);
   meta.forEach(([k, v], i) => { w.text(k, M, w.y - i * 13, 8.5, { color: C.mute }); w.text(v, M + 78, w.y - i * 13, 8.5, { font: i === 0 ? w.bold : w.font }); });
   const [label, sc] = STAMP[sub.status] ?? STAMP.pending;
   const decided = d.approvals.filter((a) => a.version === sub.version && (a.decision === "approved" || a.decision === "rejected")).at(-1);
   const sw = w.bold.widthOfTextAtSize(label, 11) + 22, sh = decided && sub.status !== "pending" ? 30 : 22;
   w.page.drawRectangle({ x: W - M - sw, y: w.y - sh + 10, width: sw, height: sh, borderColor: sc, borderWidth: 2 });
   w.text(label, W - M - sw + 11, w.y - 4, 11, { font: w.bold, color: sc });
-  if (decided && sub.status !== "pending") { const t = fmtDate(decided.decided_at, false); w.text(t, W - M - sw / 2 - w.font.widthOfTextAtSize(t, 7.5) / 2, w.y - 15, 7.5, { color: sc }); }
+  if (decided && sub.status !== "pending") { const t = fmtDate(decided.decided_at, false, d.tz); w.text(t, W - M - sw / 2 - w.font.widthOfTextAtSize(t, 7.5) / 2, w.y - 15, 7.5, { color: sc }); }
   w.y -= Math.max(meta.length * 13, sh) + 12;
 
   // ---- answers
@@ -200,7 +200,7 @@ async function renderOne(w: Writer, item: PdfItem, printedBy: string) {
       const wait = cur.filter((a) => a.level === s.level && a.decision === "pending" && sub.status === "pending");
       const decision = dec ? (dec.decision === "approved" ? "Approved" : "Rejected") : wait.length ? "Waiting" : sub.status === "approved" ? "—" : "Not reached";
       const color = dec?.decision === "approved" ? rgb(0.02, 0.47, 0.34) : dec?.decision === "rejected" ? rgb(0.73, 0.11, 0.11) : rgb(0.71, 0.33, 0.04);
-      const cells = [`${s.level} · ${s.name}`, dec ? dec.approver : wait.map((x) => x.approver).join(" / ") || "—", decision, dec ? fmtDate(dec.decided_at) : "", dec?.comment ?? ""]
+      const cells = [`${s.level} · ${s.name}`, dec ? dec.approver : wait.map((x) => x.approver).join(" / ") || "—", decision, dec ? fmtDate(dec.decided_at, true, d.tz) : "", dec?.comment ?? ""]
         .map((t, i) => w.wrap(t, i === 2 ? w.bold : w.font, 8.5, cols[i] - 8));
       const rh = Math.max(...cells.map((c) => c.length)) * 11 + 8;
       w.ensure(rh);
@@ -213,7 +213,7 @@ async function renderOne(w: Writer, item: PdfItem, printedBy: string) {
   // ---- footer on every page of this document
   const n = w.pages.length;
   const verify = `Verify: scan the QR code, or open ${item.verifyPage} and enter document number ${sub.ref_no} with verification code ${sub.verify_code}.`;
-  const printed = `Fingerprint ${item.fingerprint} · Printed ${fmtDate(new Date())} by ${printedBy} · Velkomo Signa`;
+  const printed = `Fingerprint ${item.fingerprint} · Printed ${fmtDate(new Date(), true, d.tz)} by ${printedBy} · Velkomo Signa`;
   w.pages.forEach((p, i) => {
     w.page = p;
     let fy = M + FOOT - 14;

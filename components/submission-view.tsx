@@ -51,7 +51,7 @@ export function Progress({ d }: { d: Detail }) {
             <Icon className={clsx("mt-0.5 h-5 w-5 shrink-0", { approved: "text-emerald-600", rejected: "text-red-600", current: "text-amber-500", waiting: "text-ink-line" }[state])} />
             <div className="min-w-0 text-sm">
               <p className="font-medium">Level {s.level}: {s.name}</p>
-              {decided ? <p className="text-ink-mute">{decided.decision === "approved" ? "Approved" : "Rejected"} by {decided.approver} · {fmtDate(decided.decided_at)}</p>
+              {decided ? <p className="text-ink-mute">{decided.decision === "approved" ? "Approved" : "Rejected"} by {decided.approver} · {fmtDate(decided.decided_at, true, d.tz)}</p>
                 : at.length ? <p className="text-ink-mute">{state === "current" ? "Waiting for " : ""}{at.map((a) => a.approver).join(", ")}</p>
                 : <p className="text-ink-mute">Not started</p>}
               {decided?.comment && <p className={clsx("mt-1 rounded-md px-2 py-1", decided.decision === "rejected" ? "bg-red-50 text-red-800" : "bg-ink-wash text-ink-soft")}>“{decided.comment}”</p>}
@@ -84,7 +84,7 @@ export function History({ d }: { d: Detail }) {
           <li key={i} className="relative text-sm">
             <a.icon className={clsx("absolute -left-[29px] top-0.5 h-4 w-4 bg-white", a.cls)} />
             <p><span className="font-medium">{a.label}</span>{det.step ? ` — ${det.step}` : ""}{det.version && det.version > 1 && e.action !== "level_started" ? ` (v${det.version})` : ""}</p>
-            <p className="text-xs text-ink-mute">{e.actor}{det.via === "email" ? " · by e-mail" : ""} · {fmtDate(e.created_at)}</p>
+            <p className="text-xs text-ink-mute">{e.actor}{det.via === "email" ? " · by e-mail" : ""} · {fmtDate(e.created_at, true, d.tz)}</p>
             {det.approvers && <p className="text-xs text-ink-mute">Approvers: {det.approvers.join(", ")}</p>}
             {det.to && <p className="text-xs text-ink-mute">To {det.to}{det.note ? ` — ${det.note}` : ""}</p>}
             {det.comment && <p className="mt-1 text-ink-soft">“{det.comment}”</p>}
@@ -99,7 +99,7 @@ export function SummaryCard({ d }: { d: Detail }) {
     <div className="card p-4">
       <div className="flex flex-wrap items-center gap-2"><span className="font-mono text-sm font-semibold">{d.sub.ref_no}</span><StatusBadge status={d.sub.status} />
         {d.sub.version > 1 && <span className="badge bg-ink-wash text-ink-soft">Version {d.sub.version}</span>}</div>
-      <p className="mt-2 text-sm text-ink-mute">{d.form.title} · by {d.sub.submitter} · {fmtDate(d.sub.created_at)}</p>
+      <p className="mt-2 text-sm text-ink-mute">{d.form.title} · by {d.sub.submitter} · {fmtDate(d.sub.created_at, true, d.tz)}</p>
       <p className="mt-1 text-xs text-ink-mute">Verification code <span className="font-mono font-semibold text-ink-soft">{d.sub.verify_code}</span></p>
     </div>
   );
@@ -111,7 +111,7 @@ export function OldVersions({ d, fileQuery }: { d: Detail; fileQuery?: string })
     <details className="card p-4">
       <summary className="cursor-pointer text-sm font-semibold">Earlier versions ({d.versions.length})</summary>
       {d.versions.map((v) => (
-        <div key={v.version} className="mt-4"><p className="text-xs font-semibold uppercase tracking-wide text-ink-mute">Version {v.version} · {fmtDate(v.created_at)}</p>
+        <div key={v.version} className="mt-4"><p className="text-xs font-semibold uppercase tracking-wide text-ink-mute">Version {v.version} · {fmtDate(v.created_at, true, d.tz)}</p>
           <Answers schema={d.form.schema} data={v.data} fileQuery={fileQuery} /></div>))}
     </details>
   );

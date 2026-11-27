@@ -29,11 +29,12 @@ export function summaryRows(schema: Field[], data: Record<string, unknown>, max 
     .map(([k, v]) => [k, v.length > 140 ? v.slice(0, 137) + "…" : v]);
 }
 
-export function fmtDate(d: Date | string | null | undefined, withTime = true) {
+/** Dates are shown in the hotel's own time zone (pass it); falls back to NEXT_PUBLIC_TIMEZONE, then UTC. */
+export function fmtDate(d: Date | string | null | undefined, withTime = true, tz?: string | null) {
   if (!d) return "";
   const x = typeof d === "string" ? new Date(d) : d;
   // NEXT_PUBLIC_TIMEZONE (e.g. Asia/Colombo) keeps server-rendered pages and PDFs in the hotel's local time
-  const timeZone = process.env.NEXT_PUBLIC_TIMEZONE || undefined;
+  const timeZone = tz || process.env.NEXT_PUBLIC_TIMEZONE || "UTC";
   return x.toLocaleString("en-GB", withTime
     ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone }
     : { day: "2-digit", month: "short", year: "numeric", timeZone });

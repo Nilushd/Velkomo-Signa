@@ -3,7 +3,7 @@ import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { requireUser, asSystem } from "@/lib/auth";
 import { rootSql } from "@/lib/db";
-import { forwardWaiting, returnWaiting, TZ } from "@/lib/delegation";
+import { forwardWaiting, returnWaiting } from "@/lib/delegation";
 import { runEffects, type Effect } from "@/lib/effects";
 
 const Input = z.object({
@@ -27,7 +27,7 @@ export async function createDelegation(raw: z.input<typeof Input>) {
   if (p.data.endsOn < p.data.startsOn) return { error: "The last day is before the first day." };
   const effects: Effect[] = [];
   const res = await asSystem(u.property_id, async (tx) => {
-    const [today] = await tx<{ d: string }[]>`select to_char((now() at time zone ${TZ()})::date, 'YYYY-MM-DD') as d`;
+    const [today] = await tx<{ d: string }[]>`select to_char(signa_today(${u.property_id}), 'YYYY-MM-DD') as d`;
     if (p.data.endsOn < today.d) return { error: "The last day is already in the past." };
     const [to] = await tx<{ name: string }[]>`select name from users where id = ${p.data.toUserId} and active`;
     if (!to) return { error: "That person isn't an active user." };

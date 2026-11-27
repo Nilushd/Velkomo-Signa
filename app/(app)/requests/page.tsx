@@ -22,7 +22,7 @@ export default async function Requests({ searchParams }: { searchParams: Promise
           <li key={r.id}><Link href={`/requests/${r.id}`} className="card flex flex-wrap items-center gap-3 p-4 transition hover:border-brand-300">
             <div className="min-w-0 flex-1">
               <p className="font-semibold">{r.title}</p>
-              <p className="text-sm text-ink-mute"><span className="font-mono">{r.ref_no}</span>{r.version > 1 ? ` · v${r.version}` : ""} · {fmtDate(r.created_at, false)}
+              <p className="text-sm text-ink-mute"><span className="font-mono">{r.ref_no}</span>{r.version > 1 ? ` · v${r.version}` : ""} · {fmtDate(r.created_at, false, u.time_zone)}
                 {r.status === "pending" && r.levels > 0 ? ` · level ${r.current_level} of ${r.levels}` : ""}</p>
               {r.status === "rejected" && r.comment && <p className="mt-1 text-sm text-red-700">“{r.comment}”</p>}
             </div>

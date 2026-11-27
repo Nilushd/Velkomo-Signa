@@ -9,7 +9,6 @@ import type { Effect } from "./effects";
 import { TOKEN_DAYS, approvalEmail } from "./approvals";
 import type { FormRow, SubmissionRow } from "./types";
 
-export const TZ = () => process.env.NEXT_PUBLIC_TIMEZONE || "UTC";
 
 export interface Cover { delegationId: string; userId: string; name: string; email: string | null; endsOn: string }
 
@@ -21,7 +20,7 @@ export async function coverFor(tx: Sql, userId: string, formId: string): Promise
     const [d] = await tx<{ id: string; to_user_id: string; name: string; email: string | null; ends_on: string }[]>`
       select d.id, d.to_user_id, u.name, case when u.email_approvals then u.email end as email, to_char(d.ends_on, 'YYYY-MM-DD') as ends_on from delegations d join users u on u.id = d.to_user_id and u.active
       where d.from_user_id = ${cur} and d.cancelled_at is null
-        and (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on
+        and signa_today(d.property_id) between d.starts_on and d.ends_on
         and (not exists (select 1 from delegation_forms df where df.delegation_id = d.id)
              or exists (select 1 from delegation_forms df where df.delegation_id = d.id and df.form_id = ${formId}))
       order by d.created_at desc limit 1`;
@@ -107,7 +106,7 @@ export async function applyDueDelegations(): Promise<number> {
   const { runEffects } = await import("./effects");
   const due = await rootSql()<{ id: string; property_id: string }[]>`
     select id, property_id from delegations where applied_at is null and cancelled_at is null
-      and (now() at time zone ${TZ()})::date between starts_on and ends_on`;
+      and signa_today(property_id) between starts_on and ends_on`;
   const effects: Effect[] = [];
   for (const d of due) await asSystemTx(d.property_id, (tx) => forwardWaiting(tx, effects, d.id));
   await runEffects(effects);
@@ -120,12 +119,12 @@ export interface DelegationRow { id: string; other: string; starts_on: string; e
 export async function loadDelegations(tx: Sql, userId: string) {
   const q = (dir: "from" | "to") => tx<DelegationRow[]>`
     select d.id, u.name as other, to_char(d.starts_on, 'DD Mon YYYY') as starts_on, to_char(d.ends_on, 'DD Mon YYYY') as ends_on, d.note,
-      (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on as active,
+      signa_today(d.property_id) between d.starts_on and d.ends_on as active,
       coalesce((select json_agg(json_build_object('id', f.id, 'title', f.title) order by f.title) from delegation_forms df join forms f on f.id = df.form_id
         where df.delegation_id = d.id), '[]'::json) as forms
     from delegations d join users u on u.id = ${dir === "from" ? tx`d.to_user_id` : tx`d.from_user_id`}
     where ${dir === "from" ? tx`d.from_user_id` : tx`d.to_user_id`} = ${userId} and d.cancelled_at is null
-      and d.ends_on >= (now() at time zone ${TZ()})::date
+      and d.ends_on >= signa_today(d.property_id)
     order by d.starts_on`;
   return { forwarding: await q("from"), covering: await q("to") };
 }

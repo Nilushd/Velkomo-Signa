@@ -56,7 +56,7 @@ export function SubscriptionPanel({ id, ends, daysLeft, active }: { id: string; 
   );
 }
 
-export function HotelDetails({ id, name, notes }: { id: string; name: string; notes: string }) {
+export function HotelDetails({ id, name, notes, tz, zones }: { id: string; name: string; notes: string; tz: string; zones: { value: string; label: string }[] }) {
   const [state, run] = useActionState(updateHotel.bind(null, id), undefined);
   return (
     <form action={run} className="space-y-4">
@@ -64,6 +64,9 @@ export function HotelDetails({ id, name, notes }: { id: string; name: string; no
       {state?.error && <Alert kind="error">{state.error}</Alert>}
       {state?.ok && <Alert kind="success">{state.ok}</Alert>}
       <div><label className="label" htmlFor="hn">Hotel name</label><input id="hn" name="name" className="input" defaultValue={name} required /></div>
+      <div><label className="label" htmlFor="htz">Time zone</label>
+        <select id="htz" name="tz" className="input" defaultValue={tz}>{zones.map((z) => <option key={z.value} value={z.value}>{z.label}</option>)}</select>
+        <p className="help">Dates and times at this hotel, its subscription end and daily billing follow this zone.</p></div>
       <div><label className="label" htmlFor="hnotes">Notes <span className="font-normal text-ink-mute">(only Super Admins)</span></label>
         <textarea id="hnotes" name="notes" rows={2} className="input" defaultValue={notes} placeholder="Contact person, plan, invoice number…" /></div>
       <SubmitButton className="btn-secondary">Save details</SubmitButton>

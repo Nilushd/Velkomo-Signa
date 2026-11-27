@@ -14,7 +14,7 @@ interface FormOpt { id: string; title: string }
 /** "Out of office — forward my approvals": a colleague, the days away, and all forms or only some. */
 export function DelegationPanel({ fromUserId, self, people, forms, forwarding, covering }:
   { fromUserId: string; self: boolean; people: Person[]; forms: FormOpt[]; forwarding: DelegationRow[]; covering: DelegationRow[] }) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = new Date().toLocaleDateString("en-CA"); // the device's local date (YYYY-MM-DD)
   const [to, setTo] = useState<string[]>([]);
   const [startsOn, setStart] = useState(today);
   const [endsOn, setEnd] = useState("");

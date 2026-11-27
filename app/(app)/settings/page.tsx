@@ -11,6 +11,7 @@ import { usesObjectStorage } from "@/lib/storage";
 import { PageHeader } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { PropertyForm } from "./property-form";
+import { utcOffset, localTime } from "@/lib/timezones";
 
 export const metadata = { title: "Settings" };
 
@@ -35,6 +36,7 @@ export default async function Settings({ searchParams }: { searchParams: Promise
           <div><dt className="text-ink-mute">Username</dt><dd className="font-mono">{u.username}</dd></div>
           <div><dt className="text-ink-mute">E-mail</dt><dd>{u.email ?? "Not set — ask your admin (needed for e-mail approvals)"}</dd></div>
           <div><dt className="text-ink-mute">Property</dt><dd>{u.property_name} ({u.property_code})</dd></div>
+          <div><dt className="text-ink-mute">Time zone</dt><dd>{u.time_zone.replace(/_/g, " ")} ({utcOffset(u.time_zone)}) · now {localTime(u.time_zone)}<span className="block text-xs text-ink-mute">All dates and times are shown in this zone. Set by Velkomo.</span></dd></div>
         </dl>
         <div className="mt-4 flex flex-wrap gap-2"><Link href="/change-password" className="btn-secondary">Change password</Link></div>
       </section>

@@ -6,6 +6,7 @@ import { hashPassword, passwordProblem } from "@/lib/auth";
 import { requirePlatformAdmin, type PlatformAdmin } from "@/lib/platform-auth";
 import { rootSql } from "@/lib/db";
 import { removeObjects } from "@/lib/storage";
+import { isTimeZone } from "@/lib/timezones";
 import type { FormState } from "./auth";
 
 /** Platform module: Super Admins only. All reads/writes use the privileged connection (they work across hotels). */
@@ -39,6 +40,7 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
     code: z.string().trim().min(2, "Property code needs 2–20 characters").max(20).regex(/^[A-Za-z0-9_-]+$/, "Code can use letters, numbers, dash and underscore"),
     name: z.string().trim().min(1, "Hotel name is required").max(120),
     ends: dateOrEmpty,
+    tz: z.string().trim().min(1, "Choose the hotel's time zone").refine(isTimeZone, "Choose a valid time zone"),
     limit: z.string().trim().regex(/^\d{0,4}$/, "Form types allowed must be a whole number").optional().default(""),
     notes: z.string().max(1000).optional().default(""),
     adminUsername: z.string().trim().min(2, "Admin username is required").max(40).regex(/^[a-zA-Z0-9._-]+$/, "Admin username can use letters, numbers, dot, dash and underscore"),
@@ -57,13 +59,13 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
   if (ex) return { error: `The property code ${code} is already used.` };
   const hash = await hashPassword(pw);
   const id = await sql.begin(async (tx) => {
-    const [prop] = await tx<{ id: string }[]>`insert into properties (property_code, name, subscription_ends, notes, form_type_limit)
-      values (${code}, ${p.data.name}, ${p.data.ends || null}, ${p.data.notes.trim() || null}, ${p.data.limit === "" ? null : Number(p.data.limit)}) returning id`;
+    const [prop] = await tx<{ id: string }[]>`insert into properties (property_code, name, subscription_ends, notes, form_type_limit, time_zone)
+      values (${code}, ${p.data.name}, ${p.data.ends || null}, ${p.data.notes.trim() || null}, ${p.data.limit === "" ? null : Number(p.data.limit)}, ${p.data.tz}) returning id`;
     await tx`insert into users (property_id, username, name, email, password_hash, is_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
       values (${prop.id}, ${p.data.adminUsername}, ${p.data.adminName}, ${p.data.adminEmail || null}, ${hash}, true, true, true, true, true)`;
     return prop.id;
   });
-  await log(u, { property_code: code, name: p.data.name }, "Created hotel", `Admin ${p.data.adminUsername}; subscription ${day(p.data.ends || null)}; ${p.data.limit === "" ? "unlimited form types" : `${p.data.limit} form types`}`);
+  await log(u, { property_code: code, name: p.data.name }, "Created hotel", `Admin ${p.data.adminUsername}; subscription ${day(p.data.ends || null)}; ${p.data.limit === "" ? "unlimited form types" : `${p.data.limit} form types`}; ${p.data.tz}`);
   revalidatePath("/platform");
   return { ok: "created", id, password: pw, username: p.data.adminUsername, code };
 }
@@ -71,10 +73,13 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
 export async function updateHotel(id: string, _: FormState, fd: FormData): Promise<FormState> {
   const u = await requireSuper();
   const before = await getProp(id);
-  const p = z.object({ name: z.string().trim().min(1, "Hotel name is required").max(120), notes: z.string().max(1000).optional().default("") }).safeParse(Object.fromEntries(fd));
+  const p = z.object({ name: z.string().trim().min(1, "Hotel name is required").max(120), notes: z.string().max(1000).optional().default(""),
+    tz: z.string().trim().refine(isTimeZone, "Choose a valid time zone") }).safeParse(Object.fromEntries(fd));
   if (!p.success) return { error: p.error.issues[0].message };
-  await rootSql()`update properties set name = ${p.data.name}, notes = ${p.data.notes.trim() || null} where id = ${id}`;
+  const [old] = await rootSql()<{ tz: string }[]>`select time_zone as tz from properties where id = ${id}`;
+  await rootSql()`update properties set name = ${p.data.name}, notes = ${p.data.notes.trim() || null}, time_zone = ${p.data.tz} where id = ${id}`;
   if (before.name !== p.data.name) await log(u, { ...before, name: p.data.name }, "Renamed hotel", `${before.name} → ${p.data.name}`);
+  if (old?.tz !== p.data.tz) await log(u, { ...before, name: p.data.name }, "Time zone", `${old?.tz} → ${p.data.tz}`);
   revalidatePath("/platform");
   return { ok: "Saved." };
 }

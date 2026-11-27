@@ -56,7 +56,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
             <ul className="divide-y divide-ink-line">{d.waiting.map((w) => (
               <li key={w.id}><Link href={`/approvals/${w.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink-wash">
                 <div className="min-w-0"><p className="truncate text-sm font-medium">{w.title}{w.for_name && <span className="badge ml-2 bg-amber-50 align-middle text-amber-900 ring-1 ring-amber-200">for {w.for_name}</span>}</p><p className="text-xs text-ink-mute">{w.ref_no} · {w.step_name} · {w.submitter_name ?? "Public"}</p></div>
-                <span className="text-xs text-ink-mute">{fmtDate(w.created_at, false)}</span></Link></li>))}</ul>}
+                <span className="text-xs text-ink-mute">{fmtDate(w.created_at, false, u.time_zone)}</span></Link></li>))}</ul>}
         </section>
         <section className="card">
           <div className="flex items-center justify-between border-b border-ink-line px-4 py-3">
@@ -66,7 +66,7 @@ export default async function Dashboard({ searchParams }: { searchParams: Promis
           {d.mine.length === 0 ? <p className="px-4 py-8 text-center text-sm text-ink-mute">You haven&apos;t submitted anything yet.</p> :
             <ul className="divide-y divide-ink-line">{d.mine.map((m) => (
               <li key={m.id}><Link href={`/requests/${m.id}`} className="flex items-center justify-between gap-3 px-4 py-3 hover:bg-ink-wash">
-                <div className="min-w-0"><p className="truncate text-sm font-medium">{m.title}</p><p className="text-xs text-ink-mute">{m.ref_no} · {fmtDate(m.updated_at, false)}</p></div>
+                <div className="min-w-0"><p className="truncate text-sm font-medium">{m.title}</p><p className="text-xs text-ink-mute">{m.ref_no} · {fmtDate(m.updated_at, false, u.time_zone)}</p></div>
                 <StatusBadge status={m.status} /></Link></li>))}</ul>}
         </section>
       </div>

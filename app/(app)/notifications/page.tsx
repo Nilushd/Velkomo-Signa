@@ -26,7 +26,7 @@ export default async function Notifications() {
           <li key={n.id}><Link href={n.url ?? "#"} className="flex gap-3 px-4 py-3 hover:bg-ink-wash">
             <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.read_at ? "bg-transparent" : "bg-brand-600"}`} />
             <div className="min-w-0 flex-1"><p className="text-sm font-medium">{n.title}</p>{n.body && <p className="text-sm text-ink-mute">{n.body}</p>}</div>
-            <span className="shrink-0 text-xs text-ink-mute">{fmtDate(n.created_at)}</span></Link></li>))}</ul>}
+            <span className="shrink-0 text-xs text-ink-mute">{fmtDate(n.created_at, true, u.time_zone)}</span></Link></li>))}</ul>}
     </>
   );
 }

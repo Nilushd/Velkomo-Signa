@@ -85,12 +85,12 @@ export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, 
         <section className="mt-4 flex flex-wrap items-center justify-between gap-3">
           <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-0.5 text-[12px]">
             <dt className="text-ink-mute">Submitted by</dt><dd className="font-medium">{sub.submitter}</dd>
-            <dt className="text-ink-mute">Submitted on</dt><dd>{fmtDate(sub.created_at)}</dd>
-            {sub.version > 1 && <><dt className="text-ink-mute">Last revised</dt><dd>{fmtDate(sub.updated_at)}</dd></>}
+            <dt className="text-ink-mute">Submitted on</dt><dd>{fmtDate(sub.created_at, true, d.tz)}</dd>
+            {sub.version > 1 && <><dt className="text-ink-mute">Last revised</dt><dd>{fmtDate(sub.updated_at, true, d.tz)}</dd></>}
           </dl>
           <div className="rotate-[-3deg] rounded-md border-[3px] px-4 py-1.5 text-center font-bold tracking-widest" style={{ color: stamp.color, borderColor: stamp.color }}>
             <p className="text-[15px]">{stamp.label}</p>
-            {lastDecision && sub.status !== "pending" && <p className="text-[10px] font-semibold tracking-normal">{fmtDate(lastDecision.decided_at, false)}</p>}
+            {lastDecision && sub.status !== "pending" && <p className="text-[10px] font-semibold tracking-normal">{fmtDate(lastDecision.decided_at, false, d.tz)}</p>}
           </div>
         </section>
 
@@ -124,7 +124,7 @@ export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, 
                       <td className="py-1.5 pr-2">{dec ? dec.approver : wait.length ? wait.map((w) => w.approver).join(" / ") : "—"}</td>
                       <td className="py-1.5 pr-2 font-semibold" style={{ color: dec?.decision === "approved" ? "#047857" : dec?.decision === "rejected" ? "#B91C1C" : "#B45309" }}>
                         {dec ? (dec.decision === "approved" ? "Approved" : "Rejected") : wait.length ? "Waiting" : sub.status === "approved" ? "—" : "Not reached"}</td>
-                      <td className="whitespace-nowrap py-1.5 pr-2">{dec ? fmtDate(dec.decided_at) : ""}</td>
+                      <td className="whitespace-nowrap py-1.5 pr-2">{dec ? fmtDate(dec.decided_at, true, d.tz) : ""}</td>
                       <td className="py-1.5">{dec?.comment ?? ""}</td>
                     </tr>);
                 })}
@@ -135,7 +135,7 @@ export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, 
 
         <Footer theme={theme}>
           <p className="text-[11px] text-ink-soft"><b>Verify this document:</b> scan the QR code, or open <span className="font-mono">{verifyPage}</span> and enter document number <b className="font-mono">{sub.ref_no}</b> with verification code <b className="font-mono">{sub.verify_code}</b>.</p>
-          <p>Content fingerprint <span className="font-mono">{fingerprint}</span> · Printed {fmtDate(new Date())} by {printedBy}</p>
+          <p>Content fingerprint <span className="font-mono">{fingerprint}</span> · Printed {fmtDate(new Date(), true, d.tz)} by {printedBy}</p>
         </Footer>
       </article>
     </div>

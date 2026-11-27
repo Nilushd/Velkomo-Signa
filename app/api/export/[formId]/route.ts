@@ -6,6 +6,12 @@ import { formatValue } from "@/lib/format";
 import type { FormRow, SubmissionRow } from "@/lib/types";
 
 /** Excel / CSV export of a form's submissions — Review access and admins only. */
+/** "2026-11-27 14:05" in the hotel's time zone. */
+function localStamp(d: Date, tz: string) {
+  const p = Object.fromEntries(new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit", hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).formatToParts(d).map((x) => [x.type, x.value]));
+  return `${p.year}-${p.month}-${p.day} ${p.hour}:${p.minute}`;
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ formId: string }> }) {
   const { formId } = await params;
   const u = await getSession();
@@ -23,7 +29,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ formId: 
   if (!result) return new NextResponse("Not allowed", { status: 403 });
   const fields = result.form.schema.filter((f) => f.type !== "heading" && f.type !== "signature");
   const rows = result.subs.map((s) => {
-    const r: Record<string, unknown> = { "Reference": s.ref_no, "Submitted": s.created_at.toISOString().replace("T", " ").slice(0, 16), "Submitter": s.submitter ?? "",
+    const r: Record<string, unknown> = { "Reference": s.ref_no, "Submitted": localStamp(s.created_at, u.time_zone), "Submitter": s.submitter ?? "",
       "Status": s.status, "Level": s.current_level, "Version": s.version };
     for (const f of fields) r[f.label] = formatValue(f, s.data[f.id]);
     return r;

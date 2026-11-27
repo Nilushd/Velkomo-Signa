@@ -5,7 +5,7 @@ export type PropertyState = { active: boolean; ends: string | null; daysLeft: nu
 
 export async function propertyState(propertyId: string): Promise<PropertyState | null> {
   const [p] = await rootSql()<{ active: boolean; ends: string | null; days_left: number | null }[]>`
-    select active, to_char(subscription_ends, 'YYYY-MM-DD') as ends, (subscription_ends - current_date)::int as days_left from properties where id = ${propertyId}`;
+    select active, to_char(subscription_ends, 'YYYY-MM-DD') as ends, (subscription_ends - signa_today(id))::int as days_left from properties where id = ${propertyId}`;
   return p ? { active: p.active, ends: p.ends, daysLeft: p.days_left } : null;
 }
 

@@ -30,8 +30,8 @@ export default async function Submissions({ searchParams }: { searchParams: Prom
       from submissions s join forms f on f.id = s.form_id left join users us on us.id = s.submitter_id
       where (${formId}::uuid is null or s.form_id = ${formId})
         and (${status}::text is null or s.status = ${status})
-        and (${from}::date is null or s.created_at >= ${from}::date)
-        and (${to}::date is null or s.created_at < ${to}::date + 1)
+        and (${from}::date is null or (s.created_at at time zone ${u.time_zone})::date >= ${from}::date)
+        and (${to}::date is null or (s.created_at at time zone ${u.time_zone})::date <= ${to}::date)
         and (${like}::text is null or s.ref_no ilike ${like} or coalesce(us.name, s.submitter_name, s.submitter_email, '') ilike ${like} or s.data::text ilike ${like})
       order by s.created_at desc limit 500`;
     let exportable = false;
@@ -57,7 +57,7 @@ export default async function Submissions({ searchParams }: { searchParams: Prom
       <p className="mb-3 text-xs text-ink-mute">Tick submissions to download them as PDF or print them.{!formId && " Choose a form to export its submissions to Excel or CSV."}</p>
       {rows.length === 0 ? <Empty title="No submissions match" /> :
         <>
-          <SubmissionsTable rows={rows.map((r) => ({ id: r.id, ref_no: r.ref_no, title: r.title, status: r.status, current_level: r.current_level, version: r.version, submitter: r.submitter, created: fmtDate(r.created_at) }))} />
+          <SubmissionsTable rows={rows.map((r) => ({ id: r.id, ref_no: r.ref_no, title: r.title, status: r.status, current_level: r.current_level, version: r.version, submitter: r.submitter, created: fmtDate(r.created_at, true, u.time_zone) }))} />
           {rows.length === 500 && <p className="p-3 text-xs text-ink-mute">Showing the latest 500. Narrow the filters or export.</p>}
         </>}
     </>

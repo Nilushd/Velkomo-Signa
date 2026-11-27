@@ -48,7 +48,7 @@ export default async function FormsPage({ searchParams }: { searchParams: Promis
                 <td className="text-right tabular-nums">{f.total}</td>
                 <td className="text-right tabular-nums">{f.pending}</td>
                 <td className="text-ink-soft">{f.levels === 0 ? "Auto-accept" : f.levels}</td>
-                <td className="whitespace-nowrap text-ink-mute">{fmtDate(f.updated_at, false)}</td>
+                <td className="whitespace-nowrap text-ink-mute">{fmtDate(f.updated_at, false, u.time_zone)}</td>
                 <td className="whitespace-nowrap text-right">
                   <div className="flex justify-end gap-1">
                     <Link href={`/forms/${f.id}/edit`} className="btn-ghost btn-sm"><Pencil className="h-3.5 w-3.5" /> Edit</Link>
