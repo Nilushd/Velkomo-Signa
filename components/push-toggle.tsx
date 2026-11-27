@@ -9,7 +9,7 @@ function urlB64ToUint8(b64: string) {
 }
 
 /** Turns on Web Push for this device (needs NEXT_PUBLIC_VAPID_PUBLIC_KEY and the service worker). */
-export function PushToggle() {
+export function PushToggle({ explain = false }: { explain?: boolean }) {
   const key = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
   const [state, setState] = useState<"unsupported" | "off" | "on" | "busy" | "denied">("off");
   useEffect(() => {
@@ -17,7 +17,7 @@ export function PushToggle() {
     if (Notification.permission === "denied") { setState("denied"); return; }
     navigator.serviceWorker.getRegistration().then((r) => r?.pushManager.getSubscription()).then((s) => s && setState("on")).catch(() => {});
   }, [key]);
-  if (state === "unsupported") return null;
+  if (state === "unsupported") return explain ? <span className="text-xs text-ink-mute">{key ? "Not supported in this browser" : "Not set up on this server yet"}</span> : null;
   async function enable() {
     setState("busy");
     try {

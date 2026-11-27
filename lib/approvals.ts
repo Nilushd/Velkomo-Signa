@@ -46,7 +46,7 @@ async function loadSteps(tx: Sql, formId: string) {
 /** Users of a level (groups expanded), active, and still holding Approval access on the form. */
 async function levelApprovers(tx: Sql, stepId: string, formId: string) {
   const rows = await tx<{ id: string; name: string; email: string | null }[]>`
-    select distinct u.id, u.name, u.email from users u
+    select distinct u.id, u.name, case when u.email_approvals then u.email end as email from users u
     where u.active and u.id in (
       select user_id from approval_step_approvers where step_id = ${stepId} and user_id is not null
       union
@@ -304,7 +304,7 @@ export async function sendReminders(): Promise<number> {
   const sql = rootSql();
   const due = await sql<{ id: string; property_id: string; approver_user_id: string; email: string | null; channel: string; step_name: string;
     form_id: string; submission_id: string; property_name: string }[]>`
-    select a.id, a.property_id, a.approver_user_id, u.email, st.channel, a.step_name, s.form_id, s.id as submission_id, p.name as property_name
+    select a.id, a.property_id, a.approver_user_id, case when u.email_approvals then u.email end as email, st.channel, a.step_name, s.form_id, s.id as submission_id, p.name as property_name
     from approvals a
     join submissions s on s.id = a.submission_id and s.status = 'pending' and s.version = a.version and s.current_level = a.level
     join approval_steps st on st.form_id = s.form_id and st.level = a.level and st.reminder_days is not null

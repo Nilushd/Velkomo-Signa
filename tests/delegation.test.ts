@@ -80,6 +80,20 @@ describe("out of office", () => {
     await sql`update delegations set cancelled_at = now() where id = ${d.id}`;
   });
 
+  it("someone who turned approval e-mails off gets an app notification instead of an e-mail", async () => {
+    await sql`update users set email_approvals = false where id = ${U.supervisor.id}`;
+    try {
+      const r = await submit(form, data, { userId: U.john.id, name: U.john.name, email: null });
+      if (!r.ok) throw new Error(r.error);
+      const mails = await sql`select to_address from email_log where property_id = ${pid} and subject like ${"%" + r.refNo + "%"} and subject like 'Approval needed%'`;
+      const to = mails.map((m) => m.to_address);
+      expect(to.some((t: string) => t.startsWith("supervisor."))).toBe(false); // no e-mail for Sam
+      expect(to.some((t: string) => t.startsWith("manager."))).toBe(true);     // Maya still gets hers
+      const [n] = await sql`select count(*)::int as n from notifications where user_id = ${U.supervisor.id} and body like ${r.refNo + "%"}`;
+      expect(n.n).toBe(1);
+    } finally { await sql`update users set email_approvals = true where id = ${U.supervisor.id}`; }
+  });
+
   it("a colleague who is already an approver on that level isn't given the same approval twice", async () => {
     // manager and supervisor are both level-1 approvers; supervisor away, covered by manager
     await sql`insert into delegations (property_id, from_user_id, to_user_id, starts_on, ends_on) values (${pid}, ${U.supervisor.id}, ${U.manager.id}, current_date, current_date + 1)`;

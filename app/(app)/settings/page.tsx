@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireUser, asUser } from "@/lib/auth";
 import { loadDelegations, approvableForms } from "@/lib/delegation";
 import { DelegationPanel } from "@/components/delegation-panel";
+import { EmailPref } from "@/components/email-pref";
 import { PageHeader } from "@/components/ui";
 import { PushToggle } from "@/components/push-toggle";
 import { PropertyForm } from "./property-form";
@@ -26,7 +27,15 @@ export default async function Settings() {
           <div><dt className="text-ink-mute">E-mail</dt><dd>{u.email ?? "Not set — ask your admin (needed for e-mail approvals)"}</dd></div>
           <div><dt className="text-ink-mute">Property</dt><dd>{u.property_name} ({u.property_code})</dd></div>
         </dl>
-        <div className="mt-4 flex flex-wrap gap-2"><Link href="/change-password" className="btn-secondary">Change password</Link><PushToggle /></div>
+        <div className="mt-4 flex flex-wrap gap-2"><Link href="/change-password" className="btn-secondary">Change password</Link></div>
+      </section>
+      <section className="card space-y-3 p-5" id="notifications">
+        <div><h2 className="font-semibold">Notifications</h2><p className="text-sm text-ink-mute">How approval requests reach you.</p></div>
+        <EmailPref initial={u.email_approvals} email={u.email} />
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-ink-line p-3">
+          <div><p className="text-sm font-semibold">Phone / browser push</p><p className="text-xs text-ink-mute">Pop-up alerts on this device, even when the app is closed.</p></div>
+          <PushToggle explain />
+        </div>
       </section>
       <section className="card p-5" id="out-of-office">
         <h2 className="font-semibold">Out of office — forward my approvals</h2>

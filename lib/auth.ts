@@ -23,6 +23,7 @@ export interface SessionUser {
   can_build_forms: boolean;
   can_use_studio: boolean;
   can_use_ai: boolean;
+  email_approvals: boolean;
   must_change_password: boolean;
   property_code: string;
   property_name: string;
@@ -92,7 +93,7 @@ export const getSession = cache(async (): Promise<SessionUser | null> => {
   if (!token) return null;
   const [u] = await rootSql()<SessionUser[]>`
     select u.id, u.property_id, u.username, u.name, u.email, u.department, u.is_admin, u.is_super_admin,
-           u.can_build_forms, u.can_use_studio, u.can_use_ai, u.must_change_password,
+           u.can_build_forms, u.can_use_studio, u.can_use_ai, u.email_approvals, u.must_change_password,
            p.property_code, p.name as property_name, p.logo_file_id as property_logo
     from sessions s join users u on u.id = s.user_id join properties p on p.id = u.property_id
     where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active`;

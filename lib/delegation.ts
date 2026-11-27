@@ -19,7 +19,7 @@ export async function coverFor(tx: Sql, userId: string, formId: string): Promise
   const seen = new Set([userId]);
   for (let hop = 0; hop < 3; hop++) {
     const [d] = await tx<{ id: string; to_user_id: string; name: string; email: string | null; ends_on: string }[]>`
-      select d.id, d.to_user_id, u.name, u.email, to_char(d.ends_on, 'YYYY-MM-DD') as ends_on from delegations d join users u on u.id = d.to_user_id and u.active
+      select d.id, d.to_user_id, u.name, case when u.email_approvals then u.email end as email, to_char(d.ends_on, 'YYYY-MM-DD') as ends_on from delegations d join users u on u.id = d.to_user_id and u.active
       where d.from_user_id = ${cur} and d.cancelled_at is null
         and (now() at time zone ${TZ()})::date between d.starts_on and d.ends_on
         and (not exists (select 1 from delegation_forms df where df.delegation_id = d.id)
@@ -93,7 +93,7 @@ export async function forwardWaiting(tx: Sql, effects: Effect[], delegationId: s
 /** Give back approvals that were forwarded under a delegation and are still waiting (when it is cancelled). */
 export async function returnWaiting(tx: Sql, effects: Effect[], delegationId: string, formId?: string) {
   const rows = await tx<{ id: string; on_behalf_of: string; name: string; email: string | null }[]>`
-    select a.id, a.on_behalf_of, u.name, u.email from approvals a join submissions s on s.id = a.submission_id join users u on u.id = a.on_behalf_of
+    select a.id, a.on_behalf_of, u.name, case when u.email_approvals then u.email end as email from approvals a join submissions s on s.id = a.submission_id join users u on u.id = a.on_behalf_of
     where a.delegation_id = ${delegationId} and a.decision = 'pending' and s.status = 'pending' and s.version = a.version and s.current_level = a.level
       and (${formId ?? null}::uuid is null or s.form_id = ${formId ?? null})`;
   for (const r of rows) await reassign(tx, effects, r.id, { userId: r.on_behalf_of, name: r.name, email: r.email }, null, null, `${r.name} is back`, "System");
