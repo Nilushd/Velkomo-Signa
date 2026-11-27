@@ -21,12 +21,12 @@ export default async function BillingPage({ searchParams }: { searchParams: Prom
     : `${fmtDay(b.start)} – ${fmtDay(b.end)}`;
   return (
     <>
-      <PageHeader title="Contracts & billing" subtitle="Hotels pay per enabled form, per day. Forms a hotel admin disables — and drafts — are not charged." />
+      <PageHeader title="Contracts & billing" subtitle="Hotels pay per enabled form type, per day — not per submission (submissions are unlimited). Form types a hotel admin disables, and drafts, are not charged." />
       <section className="card mb-6 p-5 print:shadow-none print:ring-0">
         {b.toDate && <p className="mb-3 rounded-lg bg-brand-50 px-3 py-2 text-sm text-brand-800 ring-1 ring-brand-200">This period is still running — figures are <b>to date ({fmtDay(b.toDate)})</b> and grow each day. The minimum charge applies to the whole month.</p>}
         <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
           <div><h2 className="font-semibold">Bill calculator</h2>
-            <p className="text-sm text-ink-mute">Each form costs the monthly rate ÷ days in the month, for every day it was enabled. <b>1 form-month</b> = one form enabled for a whole month. Updated daily.</p></div>
+            <p className="text-sm text-ink-mute">Each form type costs the monthly rate ÷ days in the month, for every day it was enabled — however many times it was filled in. <b>1 form-month</b> = one form type enabled for a whole month. Updated daily.</p></div>
           <PeriodPicker from={from} to={to} />
         </div>
         <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">

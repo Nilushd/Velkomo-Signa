@@ -12,7 +12,7 @@ import { storageUsage } from "@/lib/housekeeping";
 
 export const metadata = { title: "Platform" };
 
-type Row = { id: string; property_code: string; name: string; notes: string | null; active: boolean; ends: string | null; days_left: number | null; created_at: Date;
+type Row = { id: string; property_code: string; name: string; notes: string | null; active: boolean; form_type_limit: number | null; ends: string | null; days_left: number | null; created_at: Date;
   admins: number; users: number; forms: number; active_forms: number; subs: number; last_seen: Date | null };
 
 const FILTERS: { v: string; label: string; match: (s: SubState) => boolean }[] = [
@@ -28,7 +28,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   const { show = "all", q = "", deleted, edit } = await searchParams;
   const sql = rootSql();
   const all = await sql<Row[]>`
-    select p.id, p.property_code, p.name, p.notes, p.active, to_char(p.subscription_ends, 'YYYY-MM-DD') as ends, (p.subscription_ends - current_date)::int as days_left, p.created_at,
+    select p.id, p.property_code, p.name, p.notes, p.active, p.form_type_limit, to_char(p.subscription_ends, 'YYYY-MM-DD') as ends, (p.subscription_ends - current_date)::int as days_left, p.created_at,
       (select count(*)::int from users where property_id = p.id and is_admin and active) as admins,
       (select count(*)::int from users where property_id = p.id and active) as users,
       (select count(*)::int from forms where property_id = p.id) as forms,
@@ -49,7 +49,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   const rows: HotelRow[] = await Promise.all(shown.map(async (p) => {
     const st = await storageUsage(p.id);
     return { id: p.id, property_code: p.property_code, name: p.name, notes: p.notes, active: p.active, ends: p.ends, endsLabel: p.ends ? fmtDay(p.ends) : null,
-      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, activeForms: p.active_forms, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
+      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, activeForms: p.active_forms, limit: p.form_type_limit, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
       storage: mb(st.fileBytes + st.dataBytes),
       admins: admins.filter((a) => a.property_id === p.id).map(({ property_id: _p, seen, ...a }) => ({ ...a, last_seen: seen ? fmtDate(seen) : null })) };
   }));
@@ -68,7 +68,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
       <PageHeader title="Hotels" subtitle="Every hotel on Velkomo Signa — subscriptions and admin accounts."
         actions={<Link href="/platform/new" className="btn-primary"><Plus className="h-4 w-4" /> New hotel</Link>} />
       {deleted && <div className="mb-4"><Alert kind="success">Hotel {deleted} and all its data were deleted.</Alert></div>}
-      <p className="mb-3 text-sm text-ink-mute"><b className="text-ink">{activeFormsTotal}</b> enabled forms across all hotels · <Link href="/platform/billing" className="text-brand-700 hover:underline">Contracts &amp; billing →</Link></p>
+      <p className="mb-3 text-sm text-ink-mute"><b className="text-ink">{activeFormsTotal}</b> enabled form types across all hotels · submissions unlimited · <Link href="/platform/billing" className="text-brand-700 hover:underline">Contracts &amp; billing →</Link></p>
       <div className="mb-6 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
         {tiles.map((t) => (
           <Link key={t.label} href={`/platform?show=${t.f}`} className={clsx("card p-4 transition hover:ring-brand-300", show === t.f && "ring-2 ring-brand-500")}>

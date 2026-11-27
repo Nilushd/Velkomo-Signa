@@ -1,4 +1,5 @@
 "use server";
+import { formTypeRoom, limitMessage, limitFromError } from "@/lib/form-limit";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { z } from "zod";
@@ -91,7 +92,9 @@ export async function createForm(input: NewFormInput) {
   const steps = z.array(stepSchema).max(5).parse((input.steps ?? []).map((s) => (typeof s === "string" ? { name: s } : s)));
   const access = accessSchema.parse(input.access ?? []);
   const visibility = z.enum(["public", "all_users", "assigned"]).parse(input.visibility ?? "assigned");
-  const publish = !!input.publish && schema.length > 0 && steps.every((s) => s.approvers.length > 0);
+  const wantPublish = !!input.publish && schema.length > 0 && steps.every((s) => s.approvers.length > 0);
+  const room = await formTypeRoom(u.property_id);
+  const publish = wantPublish && room.left > 0; // over the plan's limit → saved as a draft
   const id = await asUser(u, async (tx) => {
     const [f] = await tx<{ id: string }[]>`
       insert into forms (property_id, owner_id, title, description, short_code, schema, theme, visibility, status)
@@ -110,6 +113,7 @@ export async function createForm(input: NewFormInput) {
   const qs = new URLSearchParams();
   if (input.from) qs.set("from", input.from);
   if (publish) qs.set("share", "1");
+  if (wantPublish && !publish) qs.set("limit", "1");
   redirect(`/forms/${id}/edit${qs.size ? `?${qs}` : ""}`);
 }
 
@@ -138,12 +142,14 @@ export async function setStatus(formId: string, status: "draft" | "published" | 
     const f = await editable(u, tx, formId);
     if (status === "published") {
       if ((f.schema as unknown[]).length === 0) return { error: "Add at least one field before publishing." };
+      const room = await formTypeRoom(u.property_id, formId);
+      if (f.status !== "published" && room.limit !== null && room.left <= 0) return { error: limitMessage(room.limit) };
       const problem = await approvalProblem(tx, formId);
       if (problem) return { error: problem };
     }
     await tx`update forms set status = ${status}, updated_at = now() where id = ${formId}`;
     return { ok: true };
-  });
+  }).catch((e) => { const lim = limitFromError(e); if (lim !== null) return { error: limitMessage(lim) }; throw e; });
   revalidatePath(`/forms/${formId}/edit`);
   revalidatePath("/forms");
   return res;

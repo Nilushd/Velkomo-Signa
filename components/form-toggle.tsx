@@ -16,7 +16,7 @@ export function FormToggle({ formId, title, enabled }: { formId: string; title: 
         onClick={() => start(async () => {
           const next = !on; setOn(next); setErr(null);
           const r = await setStatus(formId, next ? "published" : "closed");
-          if (r && "error" in r && r.error) { setOn(!next); setErr(r.error); return; }
+          if (r && "error" in r && r.error) { setOn(!next); const m = /Your plan allows (\d+)/.exec(r.error); setErr(m ? `Plan limit reached (${m[1]} form types) — disable another first.` : r.error); return; }
           router.refresh();
         })}
         className={clsx("inline-flex items-center gap-2 text-sm font-medium", pending && "opacity-60")}>

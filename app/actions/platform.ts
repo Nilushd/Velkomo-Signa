@@ -39,6 +39,7 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
     code: z.string().trim().min(2, "Property code needs 2–20 characters").max(20).regex(/^[A-Za-z0-9_-]+$/, "Code can use letters, numbers, dash and underscore"),
     name: z.string().trim().min(1, "Hotel name is required").max(120),
     ends: dateOrEmpty,
+    limit: z.string().trim().regex(/^\d{0,4}$/, "Form types allowed must be a whole number").optional().default(""),
     notes: z.string().max(1000).optional().default(""),
     adminUsername: z.string().trim().min(2, "Admin username is required").max(40).regex(/^[a-zA-Z0-9._-]+$/, "Admin username can use letters, numbers, dot, dash and underscore"),
     adminName: z.string().trim().min(1, "Admin name is required").max(120),
@@ -56,13 +57,13 @@ export async function createHotel(_: FormState, fd: FormData): Promise<FormState
   if (ex) return { error: `The property code ${code} is already used.` };
   const hash = await hashPassword(pw);
   const id = await sql.begin(async (tx) => {
-    const [prop] = await tx<{ id: string }[]>`insert into properties (property_code, name, subscription_ends, notes)
-      values (${code}, ${p.data.name}, ${p.data.ends || null}, ${p.data.notes.trim() || null}) returning id`;
+    const [prop] = await tx<{ id: string }[]>`insert into properties (property_code, name, subscription_ends, notes, form_type_limit)
+      values (${code}, ${p.data.name}, ${p.data.ends || null}, ${p.data.notes.trim() || null}, ${p.data.limit === "" ? null : Number(p.data.limit)}) returning id`;
     await tx`insert into users (property_id, username, name, email, password_hash, is_admin, can_build_forms, can_use_studio, can_use_ai, must_change_password)
       values (${prop.id}, ${p.data.adminUsername}, ${p.data.adminName}, ${p.data.adminEmail || null}, ${hash}, true, true, true, true, true)`;
     return prop.id;
   });
-  await log(u, { property_code: code, name: p.data.name }, "Created hotel", `Admin ${p.data.adminUsername}; subscription ${day(p.data.ends || null)}`);
+  await log(u, { property_code: code, name: p.data.name }, "Created hotel", `Admin ${p.data.adminUsername}; subscription ${day(p.data.ends || null)}; ${p.data.limit === "" ? "unlimited form types" : `${p.data.limit} form types`}`);
   revalidatePath("/platform");
   return { ok: "created", id, password: pw, username: p.data.adminUsername, code };
 }
@@ -87,6 +88,18 @@ export async function setSubscription(id: string, ends: string | null) {
   await log(u, p, "Subscription end date", `${day(p.ends)} → ${day(ends)}`);
   revalidatePath("/platform");
   return { ok: true as const };
+}
+
+/** Plan: how many form types the hotel may have enabled at once (null = unlimited). Submissions are always unlimited. */
+export async function setFormTypeLimit(id: string, limit: number | null) {
+  const u = await requireSuper();
+  if (limit !== null && (!Number.isInteger(limit) || limit < 0 || limit > 9999)) return { error: "Enter a whole number, or leave it empty for unlimited." };
+  const p = await getProp(id);
+  const [b] = await rootSql()<{ lim: number | null; n: number }[]>`select form_type_limit as lim, (select count(*)::int from forms where property_id = ${id} and status = 'published') as n from properties where id = ${id}`;
+  await rootSql()`update properties set form_type_limit = ${limit} where id = ${id}`;
+  await log(u, p, "Form type limit", `${b.lim ?? "unlimited"} → ${limit ?? "unlimited"}`);
+  revalidatePath("/platform");
+  return { ok: true as const, over: limit !== null && b.n > limit ? b.n - limit : 0 };
 }
 
 export async function setHotelActive(id: string, active: boolean) {

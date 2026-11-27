@@ -4,6 +4,7 @@ import { PageHeader, StatusBadge, Empty, Alert } from "@/components/ui";
 import { fmtDate } from "@/lib/format";
 import { Wand2, Plus, Pencil, Share2 } from "lucide-react";
 import { FormToggle } from "@/components/form-toggle";
+import { formTypeRoom } from "@/lib/form-limit";
 
 export const metadata = { title: "Forms" };
 
@@ -12,6 +13,7 @@ const VIS: Record<string, string> = { public: "Public", all_users: "All users", 
 export default async function FormsPage({ searchParams }: { searchParams: Promise<{ denied?: string }> }) {
   const u = await requireBuilder();
   const { denied } = await searchParams;
+  const room = await formTypeRoom(u.property_id);
   const forms = await asUser(u, (tx) => tx<{ id: string; title: string; status: string; visibility: string; short_code: string; updated_at: Date; owner: string | null; total: number; pending: number; levels: number }[]>`
     select f.id, f.title, f.status, f.visibility, f.short_code, f.updated_at, o.name as owner,
       (select count(*)::int from submissions s where s.form_id = f.id) as total,
@@ -29,7 +31,9 @@ export default async function FormsPage({ searchParams }: { searchParams: Promis
         </>} />
       {u.is_admin && forms.length > 0 && (() => {
         const on = forms.filter((f) => f.status === "published").length, off = forms.filter((f) => f.status === "closed").length, drafts = forms.filter((f) => f.status === "draft").length;
-        return <div className="mb-4"><Alert kind="info"><b>{on} enabled form{on === 1 ? "" : "s"}</b>{off ? ` · ${off} disabled` : ""}{drafts ? ` · ${drafts} draft${drafts === 1 ? "" : "s"}` : ""}. Your Velkomo Signa plan is charged per enabled form, per day — switch off forms you don&apos;t need and they stop being charged from the next day. Disabled forms keep all their submissions and can be switched back on any time.</Alert></div>;
+        const full = room.limit !== null && on >= room.limit;
+        return <div className="mb-4"><Alert kind={full ? "warn" : "info"}><b>{on}{room.limit !== null ? ` of ${room.limit}` : ""} form type{(room.limit ?? on) === 1 ? "" : "s"} enabled</b>{room.limit !== null ? " (your plan)" : ""}{off ? ` · ${off} disabled` : ""}{drafts ? ` · ${drafts} draft${drafts === 1 ? "" : "s"}` : ""} · <b>submissions unlimited</b>.
+          {full ? " You've reached your plan's limit — disable a form type you no longer use to enable another, or ask Velkomo to raise it." : ""} Charged per enabled form type, per day — disabled forms stop being charged from the next day and keep all their submissions.</Alert></div>;
       })()}
       {denied === "studio" && <div className="mb-4"><Alert kind="warn">Form Studio needs the Form designer permission. Ask your admin (Users &amp; Groups → the person → Permissions).</Alert></div>}
       {forms.length === 0 ? <Empty title="No forms yet">Open Form Studio and drop in a sample — an Excel sheet, a PDF or a photo of your paper form — or start from a blank form.</Empty> :

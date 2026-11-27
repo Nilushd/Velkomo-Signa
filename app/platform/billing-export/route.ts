@@ -11,7 +11,7 @@ export async function GET(req: Request) {
   const to = ok(u.searchParams.get("to")) ? u.searchParams.get("to")! : from;
   const b = await computeBilling(from, to);
   const q = (v: unknown) => { const s = String(v ?? ""); return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s; };
-  const head = ["Hotel", "Property code", "Contract no", "Billing cycle", "Period start", "Period end", "Months", "Forms billed", "Form-days", "Form-months", "Forms (days enabled)", "Rate per form per month",
+  const head = ["Hotel", "Property code", "Contract no", "Billing cycle", "Period start", "Period end", "Months", "Form types billed", "Form-type days", "Form-months", "Form types (days enabled)", "Rate per form type per month",
     "Subtotal", "Discount", "Minimum", "Minimum applied", "Tax", "Total", "Currency", "Billing contact", "Billing e-mail"];
   const lines = b.rows.map((r) => [r.name, r.code, r.contract?.contract_no, r.contract?.cycle ?? "monthly", b.start, b.end, b.months, r.forms.length, r.formDays, r.billed.toFixed(2), r.forms.map((f) => `${f.title} (${f.days})`).join("; "),
     r.rate.toFixed(2), r.subtotal.toFixed(2), r.discount.toFixed(2), r.minimum.toFixed(2), r.minimumApplied ? "yes" : "no", r.tax.toFixed(2), r.total.toFixed(2), b.settings.currency,

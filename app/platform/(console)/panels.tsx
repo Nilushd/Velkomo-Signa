@@ -1,8 +1,8 @@
 "use client";
 import { useActionState, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
-import { CalendarClock, KeyRound, PauseCircle, PlayCircle, Trash2, UserPlus, ShieldCheck, Lock } from "lucide-react";
-import { updateHotel, setSubscription, setHotelActive, resetAdminPassword, createAdmin, deleteHotel } from "@/app/actions/platform";
+import { Layers, CalendarClock, KeyRound, PauseCircle, PlayCircle, Trash2, UserPlus, ShieldCheck, Lock } from "lucide-react";
+import { updateHotel, setSubscription, setHotelActive, setFormTypeLimit, resetAdminPassword, createAdmin, deleteHotel } from "@/app/actions/platform";
 import { SubmitButton } from "@/components/submit-button";
 import { Alert } from "@/components/ui";
 import { Credentials } from "./credentials";
@@ -168,6 +168,35 @@ export function DangerZone({ id, code, name, counts, onDeleted }: { id: string; 
               <button className="btn-ghost" onClick={() => { setOpen(false); setTyped(""); }}>Cancel</button>
             </div>
           </div>)}
+      </div>
+    </section>
+  );
+}
+
+export function PlanPanel({ id, limit, enabled }: { id: string; limit: number | null; enabled: number }) {
+  const [v, setV] = useState(limit === null ? "" : String(limit));
+  const [msg, setMsg] = useState<{ kind: "success" | "error" | "warn"; text: string } | null>(null);
+  const [pending, start] = useTransition();
+  const router = useRouter();
+  const save = (val: string) => start(async () => {
+    const r = await setFormTypeLimit(id, val.trim() === "" ? null : Number(val));
+    if ("error" in r && r.error) { setMsg({ kind: "error", text: r.error }); return; }
+    const over = "over" in r ? r.over : 0;
+    setMsg(over ? { kind: "warn", text: `Saved. The hotel has ${over} more enabled than allowed — they stay on, but no more can be enabled until some are disabled.` }
+      : { kind: "success", text: val.trim() === "" ? "Form types: unlimited." : `Form types allowed: ${val}.` });
+    router.refresh();
+  });
+  return (
+    <section className="space-y-3" id="plan">
+      <div className="flex items-center gap-2"><Layers className="h-5 w-5 text-brand-600" /><h2 className="font-semibold">Plan · form types</h2></div>
+      {msg && <Alert kind={msg.kind}>{msg.text}</Alert>}
+      <p className="text-sm text-ink-soft"><b>{enabled}</b> of <b>{limit ?? "unlimited"}</b> form types enabled. Submissions are unlimited; drafts and disabled forms don&apos;t count.</p>
+      <div className="flex flex-wrap items-end gap-2">
+        <div><label className="label" htmlFor="ftl">Form types allowed</label>
+          <input id="ftl" type="number" min={0} max={9999} className="input w-40" value={v} onChange={(e) => setV(e.target.value)} placeholder="Unlimited" /></div>
+        <button className="btn-primary" disabled={pending || v === (limit === null ? "" : String(limit))} onClick={() => save(v)}>Save limit</button>
+        {[5, 10, 20].map((n) => <button key={n} className="btn-secondary btn-sm" disabled={pending} onClick={() => { setV(String(n)); save(String(n)); }}>{n}</button>)}
+        <button className="btn-ghost btn-sm" disabled={pending || limit === null} onClick={() => { setV(""); save(""); }}>Unlimited</button>
       </div>
     </section>
   );

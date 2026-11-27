@@ -1,3 +1,5 @@
+import { formTypeRoom, limitMessage } from "@/lib/form-limit";
+import { Alert } from "@/components/ui";
 import { notFound } from "next/navigation";
 import { requireUser, asUser } from "@/lib/auth";
 import { formAccess, canEditForm } from "@/lib/access";
@@ -7,9 +9,9 @@ import { Builder, type BuilderData } from "@/components/builder/builder";
 
 export const metadata = { title: "Form builder" };
 
-export default async function EditForm({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string; share?: string }> }) {
+export default async function EditForm({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ from?: string; share?: string; limit?: string }> }) {
   const { id } = await params;
-  const { from, share } = await searchParams;
+  const { from, share, limit } = await searchParams;
   const u = await requireUser();
   const data = await asUser(u, async (tx): Promise<BuilderData | null> => {
     const [f] = await tx<FormRow[]>`select * from forms where id = ${id}`;
@@ -40,5 +42,9 @@ export default async function EditForm({ params, searchParams }: { params: Promi
     };
   });
   if (!data) notFound();
+  if (limit === "1") {
+    const room = await formTypeRoom(u.property_id);
+    return <><div className="mb-4"><Alert kind="warn">Saved as a draft — {limitMessage(room.limit ?? 0)}</Alert></div><Builder data={data} fromStudio={from === "studio"} openShare={false} /></>;
+  }
   return <Builder data={data} fromStudio={from === "studio"} openShare={share === "1"} />;
 }

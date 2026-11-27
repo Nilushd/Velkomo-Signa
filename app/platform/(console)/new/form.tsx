@@ -42,6 +42,9 @@ export function NewHotelForm() {
           </div>
           <p className="help">The hotel can use the app up to and including this day. After it, nobody at the hotel can sign in and its public forms close — nothing is deleted.</p>
         </div>
+        <div><label className="label" htmlFor="limit">Form types allowed</label>
+          <input id="limit" name="limit" type="number" min={0} max={9999} className="input w-48" placeholder="Unlimited" defaultValue="5" />
+          <p className="help">How many different forms (e.g. Leave Request, Purchase Requisition) the hotel can have enabled at once. Submissions are unlimited. Leave empty for no limit.</p></div>
         <div><label className="label" htmlFor="notes">Notes <span className="font-normal text-ink-mute">(only Super Admins see these)</span></label>
           <textarea id="notes" name="notes" rows={2} className="input" placeholder="Contact person, plan, invoice number…" /></div>
       </section>

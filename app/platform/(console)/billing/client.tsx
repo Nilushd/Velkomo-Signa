@@ -43,7 +43,7 @@ export function BillingTable({ rows, currency, from, to, totals, taxPct, openCon
       </div>
       <div className="overflow-x-auto">
         <table className="table [&_td]:whitespace-nowrap">
-          <thead><tr><th>Hotel</th><th>Contract</th><th className="text-right">Forms billed</th>
+          <thead><tr><th>Hotel</th><th>Contract</th><th className="text-right">Form types billed</th>
             <th className="text-right">Subtotal</th><th className="text-right">Discount</th><th className="text-right">Tax {taxPct ? `(${taxPct}%)` : ""}</th><th className="text-right">Total</th></tr></thead>
           <tbody>
             {rows.map((r) => (
@@ -91,7 +91,7 @@ function ContractPanel({ row, currency, onClose }: { row: BillRow; currency: str
       <form action={run} className="flex h-full w-full max-w-xl flex-col bg-white shadow-2xl" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-start gap-3 border-b border-ink-line px-5 py-4">
           <div className="flex-1"><h2 className="text-lg font-semibold">Contract · {row.name}</h2>
-            <p className="text-sm text-ink-mute"><span className="font-mono">{row.code}</span> · {row.activeNow} enabled form{row.activeNow === 1 ? "" : "s"} now{row.ends ? ` · subscription ends ${row.ends}` : ""}</p></div>
+            <p className="text-sm text-ink-mute"><span className="font-mono">{row.code}</span> · {row.activeNow} form type{row.activeNow === 1 ? "" : "s"} enabled now{row.ends ? ` · subscription ends ${row.ends}` : ""}</p></div>
           <button type="button" className="btn-ghost btn-sm" onClick={onClose} aria-label="Close"><X className="h-5 w-5" /></button>
         </div>
         <div className="flex-1 space-y-4 overflow-y-auto px-5 py-5">
@@ -103,7 +103,7 @@ function ContractPanel({ row, currency, onClose }: { row: BillRow; currency: str
             <div><label className="label" htmlFor="ccycle">Billing cycle</label>
               <select id="ccycle" name="cycle" className="input" defaultValue={c?.cycle ?? "monthly"}><option value="monthly">Monthly</option><option value="quarterly">Quarterly</option><option value="annual">Annual</option></select></div>
             <div><label className="label" htmlFor="cdisc">Discount %</label><input id="cdisc" name="discount" inputMode="decimal" className="input" defaultValue={c?.discount_pct ? String(c.discount_pct) : ""} placeholder="0" /></div>
-            <div><label className="label" htmlFor="crate">Rate per form / month <span className="font-normal text-ink-mute">({currency})</span></label>
+            <div><label className="label" htmlFor="crate">Rate per form type / month <span className="font-normal text-ink-mute">({currency})</span></label>
               <input id="crate" name="rate" inputMode="decimal" className="input" defaultValue={c?.rate_per_form != null ? String(c.rate_per_form) : ""} placeholder="Default pricing" /></div>
             <div><label className="label" htmlFor="cmin">Minimum per month <span className="font-normal text-ink-mute">({currency})</span></label>
               <input id="cmin" name="minimum" inputMode="decimal" className="input" defaultValue={c?.minimum_monthly != null ? String(c.minimum_monthly) : ""} placeholder="Default pricing" /></div>
@@ -127,7 +127,7 @@ export function PricingForm({ currencies, s }: { currencies: string[]; s: Billin
       {state?.ok && <Alert kind="success">{state.ok}</Alert>}
       <div className="grid gap-4 sm:grid-cols-4">
         <div><label className="label" htmlFor="pcur">Currency</label><select id="pcur" name="currency" className="input" defaultValue={s.currency}>{currencies.map((c) => <option key={c}>{c}</option>)}</select></div>
-        <div><label className="label" htmlFor="prate">Price per enabled form / month</label><input id="prate" name="rate" inputMode="decimal" className="input" defaultValue={s.rate_per_form.toFixed(2)} required /></div>
+        <div><label className="label" htmlFor="prate">Price per enabled form type / month</label><input id="prate" name="rate" inputMode="decimal" className="input" defaultValue={s.rate_per_form.toFixed(2)} required /></div>
         <div><label className="label" htmlFor="pmin">Minimum per hotel / month</label><input id="pmin" name="minimum" inputMode="decimal" className="input" defaultValue={s.minimum_monthly.toFixed(2)} required /></div>
         <div><label className="label" htmlFor="ptax">Tax %</label><input id="ptax" name="tax" inputMode="decimal" className="input" defaultValue={String(s.tax_pct)} required /></div>
       </div>
