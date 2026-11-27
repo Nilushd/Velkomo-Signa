@@ -5,7 +5,7 @@ import { useRouter } from "next/navigation";
 import clsx from "clsx";
 import { Check, X } from "lucide-react";
 import { decideMany } from "@/app/actions/submit";
-import { Alert } from "../ui";
+import { Alert, Empty } from "../ui";
 
 export interface PendingRow { id: string; ref_no: string; title: string; form_id: string; submitter: string | null; level: number; step_name: string; created: string; for_name: string | null; summary: [string, string][] }
 
@@ -40,6 +40,7 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
   return (
     <div className="space-y-3">
       {result && <Alert kind={result.kind}>{result.text}{result.details?.length ? <ul className="mt-1 list-disc pl-5 text-xs">{result.details.map((d) => <li key={d}>{d}</li>)}</ul> : null}</Alert>}
+      {rows.length === 0 ? <Empty title="You're all caught up">New requests will appear here.</Empty> : <>
       <div className="flex flex-wrap items-center gap-3">
         <label className="flex items-center gap-2 text-sm text-ink-soft"><input type="checkbox" aria-label="Select all shown" checked={allShown}
           onChange={() => setSel((s) => { const n = new Set(s); if (allShown) shown.forEach((r) => n.delete(r.id)); else shown.slice(0, 100).forEach((r) => n.add(r.id)); return n; })} /> Select all{formFilter ? " shown" : ""}</label>
@@ -66,6 +67,7 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
             <span className="text-xs text-ink-mute">{r.created}</span>
           </Link>
         </li>))}</ul>
+      </>}
 
       {chosen.length > 0 && !ask && (
         <div className="sticky bottom-4 z-20 flex flex-wrap items-center gap-2 rounded-xl bg-brand-900 px-4 py-3 text-white shadow-xl" role="region" aria-label="Selected approvals">

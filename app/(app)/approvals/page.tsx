@@ -31,10 +31,10 @@ export default async function Approvals({ searchParams }: { searchParams: Promis
         <Link href="/approvals" className={clsx("tab", tab === "pending" && "tab-active")}>Pending</Link>
         <Link href="/approvals?tab=done" className={clsx("tab", tab === "done" && "tab-active")}>Done</Link>
       </div>
-      {rows.length === 0 ? <Empty title={tab === "pending" ? "You're all caught up" : "Nothing here yet"} /> : tab === "pending" ? (
+      {tab === "pending" ? (
         <PendingList rows={rows.map((r) => ({ id: r.id, ref_no: r.ref_no, title: r.title, form_id: r.form_id, submitter: r.submitter, level: r.level, step_name: r.step_name,
           created: fmtDate(r.created_at), for_name: r.for_name, summary: summaryRows(r.schema, r.data, 3).map(([k, v]) => [k, v.length > 60 ? v.slice(0, 57) + "…" : v] as [string, string]) }))} />
-      ) :
+      ) : rows.length === 0 ? <Empty title="Nothing here yet" /> :
         <ul className="space-y-2">{rows.map((r) => (
           <li key={r.id}><Link href={`/approvals/${r.id}`} className="card flex flex-wrap items-center gap-3 p-4 transition hover:border-brand-300">
             <div className="min-w-0 flex-1">

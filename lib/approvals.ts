@@ -138,6 +138,15 @@ async function notifyRequester(ctx: Ctx, form: FormRow, sub: SubmissionRow, kind
     rejected: `Your request was rejected${comment ? ` with this comment: “${comment}”` : ""}. You can edit your answers and resubmit, or withdraw it.`,
     received: sub.status === "approved" ? "Your request was received and accepted." : "Your request was received and is waiting for approval. We'll e-mail you when it is decided.",
   };
+  // who decided, with their comments, for the approved / rejected e-mail
+  const decisions = kind === "received" ? [] : await tx<{ level: number; step_name: string; who: string; comment: string | null }[]>`
+    select a.level, a.step_name, u.name || coalesce(' (for ' || ob.name || ')', '') as who, a.comment
+    from approvals a join users u on u.id = a.approver_user_id left join users ob on ob.id = a.on_behalf_of
+    where a.submission_id = ${sub.id} and a.version = ${sub.version} and a.decision in ('approved', 'rejected') order by a.level`;
+  const decisionRows: [string, string][] = decisions.flatMap((d) => [
+    [`Level ${d.level} · ${d.step_name}`, `${kind === "rejected" && d === decisions[decisions.length - 1] ? "Rejected" : "Approved"} by ${d.who}`] as [string, string],
+    ...(d.comment ? [["Comment", `“${d.comment}”`] as [string, string]] : []),
+  ]);
   let email = sub.submitter_email;
   let url: string;
   if (sub.submitter_id) {
@@ -156,7 +165,7 @@ async function notifyRequester(ctx: Ctx, form: FormRow, sub: SubmissionRow, kind
       to: email, propertyId: sub.property_id, subject: titles[kind],
       html: emailLayout({
         propertyName: ctx.propertyName, title: titles[kind], intro: intros[kind],
-        rows: [["Reference", sub.ref_no], ["Form", form.title], ...(kind === "received" ? summaryRows(form.schema, sub.data, 6) : [])],
+        rows: [["Reference", sub.ref_no], ["Form", form.title], ...(kind === "received" ? summaryRows(form.schema, sub.data, 6) : decisionRows)],
         buttons: [{ label: kind === "rejected" ? "Edit and resubmit" : "View status", url }],
         footer: kind === "received" ? "Keep this e-mail: the link shows the status of your request." : undefined,
       }),
