@@ -3,7 +3,7 @@
  */
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
 import { rootSql, tenant } from "@/lib/db";
-import { submit, decide, resubmit, withdraw, resolveActionToken } from "@/lib/approvals";
+import { submit, decide, resubmit, withdraw, deleteRequest, resolveActionToken } from "@/lib/approvals";
 import { formAccess, canSubmit, canReview, canApprove } from "@/lib/access";
 import type { FormRow } from "@/lib/types";
 import { randomToken, sha256 } from "@/lib/crypto";
@@ -85,14 +85,33 @@ describe("approval engine", () => {
     expect(ap.filter((x) => x.version === 2 && x.level === 1 && x.decision === "pending")).toHaveLength(2);
   });
 
-  it("withdraw only after rejection, only by submitter", async () => {
+  it("cancel works before any approver acts; not after; approvers' tasks close", async () => {
     const r = await submit(form, data, { userId: U.john.id, name: U.john.name, email: null });
     if (!r.ok) throw new Error(r.error);
-    expect((await withdraw(pid, r.id, { userId: U.john.id }, "John")).ok).toBe(false);
+    expect((await withdraw(pid, r.id, { userId: U.ravi.id }, "Ravi")).ok).toBe(false); // not his
+    expect((await withdraw(pid, r.id, { userId: U.john.id }, "John")).ok).toBe(true);
+    const [s1] = await sql`select status from submissions where id = ${r.id}`;
+    expect(s1.status).toBe("withdrawn");
+    expect((await pending(r.id)).every((a) => a.decision === "closed")).toBe(true);
+    // once level 1 has approved, it can't be cancelled or deleted
+    const r2 = await submit(form, data, { userId: U.john.id, name: U.john.name, email: null });
+    if (!r2.ok) throw new Error(r2.error);
+    const a = (await pending(r2.id))[0];
+    await decide(pid, a.id, "approved", null, { userId: a.approver_user_id, name: "A", via: "app" });
+    expect((await withdraw(pid, r2.id, { userId: U.john.id }, "John")).ok).toBe(false);
+    expect((await deleteRequest(pid, r2.id, { adminId: U.admin.id }, "Admin")).ok).toBe(false);
+  });
+
+  it("a rejected request can be deleted by its submitter or an admin, leaving an audit note", async () => {
+    const r = await submit(form, data, { userId: U.john.id, name: U.john.name, email: null });
+    if (!r.ok) throw new Error(r.error);
     const a = (await pending(r.id))[0];
     await decide(pid, a.id, "rejected", "No", { userId: a.approver_user_id, name: "A", via: "app" });
-    expect((await withdraw(pid, r.id, { userId: U.nimali.id }, "N")).ok).toBe(false);
-    expect((await withdraw(pid, r.id, { userId: U.john.id }, "John")).ok).toBe(true);
+    expect((await deleteRequest(pid, r.id, { userId: U.nimali.id }, "Nimali")).ok).toBe(false);
+    expect((await deleteRequest(pid, r.id, { adminId: U.admin.id }, "Admin (admin)")).ok).toBe(true);
+    expect(await sql`select 1 from submissions where id = ${r.id}`).toHaveLength(0);
+    const [log] = await sql`select actor, detail from audit_log where action = 'deleted' and detail->>'ref_no' = ${r.refNo} and property_id = ${pid}`;
+    expect(log.actor).toBe("Admin (admin)");
   });
 
   it("email action tokens are single use", async () => {

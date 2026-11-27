@@ -2,7 +2,8 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft, Printer, Download } from "lucide-react";
 import { requireUser, asUser } from "@/lib/auth";
-import { loadDetail } from "@/lib/submission-view";
+import { loadDetail, canChange } from "@/lib/submission-view";
+import { RequestManage } from "@/components/request-manage";
 import { Answers, Progress, SummaryCard, History, OldVersions } from "@/components/submission-view";
 import { RequesterActions } from "@/components/requester-actions";
 
@@ -28,6 +29,8 @@ export default async function RequestDetail({ params }: { params: Promise<{ id: 
       {mine && d.sub.status === "rejected" && <RequesterActions submissionId={d.sub.id} uploadCode={d.form.short_code} title={d.form.title} schema={d.form.schema} theme={d.form.theme} data={d.sub.data} comment={lastReject?.comment} />}
       <section className="card p-4"><h2 className="mb-3 font-semibold">Approval progress</h2><Progress d={d} /></section>
       <section className="card p-4"><h2 className="mb-1 font-semibold">Answers</h2><Answers schema={d.form.schema} data={d.sub.data} /></section>
+      {canChange(d) && (mine || u.is_admin) && (
+        <RequestManage submissionId={d.sub.id} refNo={d.sub.ref_no} rejected={d.sub.status === "rejected"} asAdmin={!mine} afterDelete={mine ? "/requests" : "/submissions"} />)}
       <OldVersions d={d} />
       <section className="card p-4"><h2 className="mb-3 font-semibold">History</h2><History d={d} /></section>
     </div>

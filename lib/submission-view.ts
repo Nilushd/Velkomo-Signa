@@ -25,3 +25,9 @@ export async function loadDetail(tx: Sql, submissionId: string): Promise<Detail 
   const steps = await tx<Detail["steps"]>`select level, name from approval_steps where form_id = ${form.id} order by level`;
   return { sub, form, approvals, audit, versions, steps };
 }
+
+/** Cancel / delete is allowed before any approver has acted on the current version, or after a rejection. */
+export function canChange(d: Detail) {
+  if (d.sub.status === "rejected") return true;
+  return d.sub.status === "pending" && !d.approvals.some((a) => a.version === d.sub.version && (a.decision === "approved" || a.decision === "rejected"));
+}

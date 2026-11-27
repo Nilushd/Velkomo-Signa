@@ -3,7 +3,7 @@ import { rootSql, tenant } from "@/lib/db";
 import { getSession, type SessionUser } from "@/lib/auth";
 import { formAccess, canSubmit, canApprove } from "@/lib/access";
 import { validateAnswers, fileIdsIn } from "@/lib/validate";
-import { submit, resubmit, withdraw, decide, resolveActionToken } from "@/lib/approvals";
+import { submit, resubmit, withdraw, deleteRequest, decide, resolveActionToken, type Requester } from "@/lib/approvals";
 import { rateLimit, clientIp } from "@/lib/ratelimit";
 import { verifyCaptcha } from "@/lib/captcha";
 import { sha256 } from "@/lib/crypto";
@@ -76,15 +76,35 @@ export async function resubmitAsUser(submissionId: string, raw: Record<string, u
   return r.ok ? { ok: true, refNo: sub.ref_no, status: r.status } : r;
 }
 
-export async function withdrawRequest(submissionId: string, token?: string) {
+/** The submitter (app or status link) or an admin of the property. */
+async function requesterOrAdmin(submissionId: string, token?: string) {
   if (token) {
-    const [t] = await rootSql()<{ submission_id: string; property_id: string }[]>`select submission_id, property_id from status_tokens where token_hash = ${sha256(token)}`;
-    if (!t || t.submission_id !== submissionId) return { ok: false as const, error: "This link is not valid." };
-    return withdraw(t.property_id, submissionId, { statusToken: token }, "Public requester");
+    const [t] = await rootSql()<{ submission_id: string; property_id: string; name: string | null }[]>`
+      select t.submission_id, t.property_id, s.submitter_name as name from status_tokens t join submissions s on s.id = t.submission_id where t.token_hash = ${sha256(token)}`;
+    if (!t || t.submission_id !== submissionId) return null;
+    return { propertyId: t.property_id, who: { statusToken: token } as Requester, name: t.name || "Public requester" };
   }
   const u = await getSession();
-  if (!u) return { ok: false as const, error: "Please sign in again." };
-  return withdraw(u.property_id, submissionId, { userId: u.id }, u.name);
+  if (!u || u.must_change_password) return null;
+  const [s] = await rootSql()<{ submitter_id: string | null; property_id: string }[]>`select submitter_id, property_id from submissions where id = ${submissionId}`;
+  if (!s || s.property_id !== u.property_id) return null;
+  if (s.submitter_id === u.id) return { propertyId: u.property_id, who: { userId: u.id } as Requester, name: u.name };
+  if (u.is_admin) return { propertyId: u.property_id, who: { adminId: u.id } as Requester, name: `${u.name} (admin)` };
+  return null;
+}
+
+/** Cancel a request (kept on record as Cancelled). */
+export async function withdrawRequest(submissionId: string, token?: string) {
+  const r = await requesterOrAdmin(submissionId, token);
+  if (!r) return { ok: false as const, error: "Only the person who submitted it, or an admin, can cancel it." };
+  return withdraw(r.propertyId, submissionId, r.who, r.name);
+}
+
+/** Delete a request permanently. */
+export async function deleteRequestAction(submissionId: string, token?: string) {
+  const r = await requesterOrAdmin(submissionId, token);
+  if (!r) return { ok: false as const, error: "Only the person who submitted it, or an admin, can delete it." };
+  return deleteRequest(r.propertyId, submissionId, r.who, r.name);
 }
 
 /** In-app decision: the approval row must belong to the signed-in user, and they must still have Review access. */

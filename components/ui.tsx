@@ -16,7 +16,7 @@ const STATUS: Record<string, string> = {
   published: "bg-brand-50 text-brand-700 ring-1 ring-brand-200",
 };
 export function StatusBadge({ status }: { status: SubmissionStatus | string }) {
-  return <span className={clsx("badge capitalize", STATUS[status] ?? STATUS.draft)}>{status}</span>;
+  return <span className={clsx("badge capitalize", STATUS[status] ?? STATUS.draft)}>{status === "withdrawn" ? "cancelled" : status}</span>;
 }
 
 export function PageHeader({ title, subtitle, actions }: { title: string; subtitle?: React.ReactNode; actions?: React.ReactNode }) {

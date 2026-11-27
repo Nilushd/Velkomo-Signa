@@ -63,7 +63,7 @@ const ACTIONS: Record<string, { label: string; icon: React.ComponentType<{ class
   level_rejected: { label: "Rejected", icon: XCircle, cls: "text-red-600" },
   level_skipped: { label: "Level skipped", icon: MinusCircle, cls: "text-ink-mute" },
   approved: { label: "Request approved", icon: Flag, cls: "text-emerald-600" },
-  withdrawn: { label: "Withdrawn", icon: Undo2, cls: "text-ink-mute" },
+  withdrawn: { label: "Cancelled", icon: Undo2, cls: "text-ink-mute" },
   forwarded: { label: "Forwarded", icon: Send, cls: "text-amber-500" },
 };
 

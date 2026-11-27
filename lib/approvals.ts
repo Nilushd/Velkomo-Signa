@@ -262,9 +262,11 @@ export async function decide(propertyId: string, approvalId: string, decision: "
   return res;
 }
 
-export type Requester = { userId: string } | { statusToken: string };
+/** Who is changing a request: its submitter (app or status link) or an admin of the property (checked by the caller). */
+export type Requester = { userId: string } | { statusToken: string } | { adminId: string };
 
 async function checkRequester(tx: Sql, sub: SubmissionRow, who: Requester) {
+  if ("adminId" in who) return true; // the action layer has verified the admin belongs to this property
   if ("userId" in who) return !!sub.submitter_id && sub.submitter_id === who.userId;
   if (sub.submitter_id) return false; // account holders resubmit from inside the app
   const [t] = await tx`select 1 from status_tokens where submission_id = ${sub.id} and token_hash = ${sha256(who.statusToken)}`;
@@ -277,7 +279,7 @@ export async function resubmit(propertyId: string, submissionId: string, data: R
   let effects: Effect[] = [];
   const res = await asSystemTx(propertyId, async (tx) => {
     const [sub] = await tx<SubmissionRow[]>`select * from submissions where id = ${submissionId} for update`;
-    if (!sub || !(await checkRequester(tx, sub, who))) return { ok: false as const, error: "Only the original requester can resubmit." };
+    if (!sub || "adminId" in who || !(await checkRequester(tx, sub, who))) return { ok: false as const, error: "Only the original requester can resubmit." };
     if (sub.status !== "rejected") return { ok: false as const, error: "Only rejected requests can be edited and resubmitted." };
     const ctx = await loadCtx(tx, propertyId);
     const form = await loadForm(tx, sub.form_id);
@@ -296,14 +298,56 @@ export async function resubmit(propertyId: string, submissionId: string, data: R
   return res;
 }
 
+/** Can the requester (or an admin) still cancel or delete it? Before any approver has acted, or after a rejection. */
+export async function changeableReason(tx: Sql, sub: SubmissionRow): Promise<string | null> {
+  if (sub.status === "rejected") return null;
+  if (sub.status !== "pending") return sub.status === "approved" ? "Approved requests can't be cancelled or deleted." : "This request is already cancelled.";
+  const [d] = await tx`select 1 from approvals where submission_id = ${sub.id} and version = ${sub.version} and decision in ('approved', 'rejected') limit 1`;
+  return d ? "An approver has already acted on this request, so it can no longer be cancelled or deleted." : null;
+}
+
+function actorOf(who: Requester, name: string): Actor {
+  return { userId: "userId" in who ? who.userId : "adminId" in who ? who.adminId : null, name, via: "statusToken" in who ? "public" : "app" };
+}
+
+/** Close everything still waiting on approvers (inbox items and e-mail links). */
+async function closeWaiting(tx: Sql, sub: SubmissionRow, note: string) {
+  await tx`update action_tokens set used_at = now() where used_at is null and approval_id in (select id from approvals where submission_id = ${sub.id})`;
+  await tx`update approvals set decision = 'closed', closed_note = ${note}, decided_at = now() where submission_id = ${sub.id} and decision = 'pending'`;
+}
+
+/** Cancel: keeps the record (status "withdrawn", shown as Cancelled); approvers' tasks close. */
 export async function withdraw(propertyId: string, submissionId: string, who: Requester, actorName: string) {
   return asSystemTx(propertyId, async (tx) => {
     const [sub] = await tx<SubmissionRow[]>`select * from submissions where id = ${submissionId} for update`;
-    if (!sub || !(await checkRequester(tx, sub, who))) return { ok: false as const, error: "Only the original requester can withdraw." };
-    if (sub.status !== "rejected") return { ok: false as const, error: "Only rejected requests can be withdrawn." };
+    if (!sub || !(await checkRequester(tx, sub, who))) return { ok: false as const, error: "Only the person who submitted it, or an admin, can cancel it." };
+    const why = await changeableReason(tx, sub);
+    if (why) return { ok: false as const, error: why };
+    await closeWaiting(tx, sub, `Cancelled by ${actorName}`);
     await tx`update submissions set status = 'withdrawn', updated_at = now() where id = ${sub.id}`;
-    await audit(tx, sub, { userId: "userId" in who ? who.userId : null, name: actorName, via: "userId" in who ? "app" : "public" }, "withdrawn");
+    await audit(tx, sub, actorOf(who, actorName), "withdrawn");
     return { ok: true as const };
+  });
+}
+
+/** Delete permanently (with its uploaded files). A short entry stays in the audit log with the reference number. */
+export async function deleteRequest(propertyId: string, submissionId: string, who: Requester, actorName: string) {
+  return asSystemTx(propertyId, async (tx) => {
+    const [sub] = await tx<SubmissionRow[]>`select * from submissions where id = ${submissionId} for update`;
+    if (!sub || !(await checkRequester(tx, sub, who))) return { ok: false as const, error: "Only the person who submitted it, or an admin, can delete it." };
+    const why = await changeableReason(tx, sub);
+    if (why) return { ok: false as const, error: why };
+    const [form] = await tx<{ id: string; title: string; schema: FormRow["schema"] }[]>`select id, title, schema from forms where id = ${sub.form_id}`;
+    const { fileIdsIn } = await import("./validate");
+    const older = await tx<{ data: Record<string, unknown> }[]>`select data from submission_versions where submission_id = ${sub.id}`;
+    const fileIds = [...new Set([sub.data, ...older.map((o) => o.data)].flatMap((d) => fileIdsIn(form.schema, d)))];
+    const gone = await tx`delete from submissions where id = ${sub.id}`;
+    if (gone.count !== 1) throw new Error("Request could not be deleted");
+    if (fileIds.length) await tx`delete from files where id in ${tx(fileIds)} and form_id = ${sub.form_id}`;
+    await tx`insert into audit_log (property_id, submission_id, form_id, actor, actor_user_id, action, detail)
+      values (${sub.property_id}, null, ${sub.form_id}, ${actorName}, ${actorOf(who, actorName).userId}, 'deleted',
+        ${tx.json({ ref_no: sub.ref_no, form: form.title, status: sub.status, submitter: sub.submitter_name, files: fileIds.length } as never)})`;
+    return { ok: true as const, refNo: sub.ref_no };
   });
 }
 

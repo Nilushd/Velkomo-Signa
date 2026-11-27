@@ -1,14 +1,14 @@
 import Link from "next/link";
 import { requireUser, asUser } from "@/lib/auth";
 import { formAccess, canReview } from "@/lib/access";
-import { PageHeader, Empty } from "@/components/ui";
+import { PageHeader, Empty, Alert } from "@/components/ui";
 import { SubmissionsTable } from "./table";
 import { fmtDate } from "@/lib/format";
 import { Download } from "lucide-react";
 
 export const metadata = { title: "Submissions" };
 
-interface SP { form?: string; status?: string; q?: string; from?: string; to?: string }
+interface SP { form?: string; status?: string; q?: string; from?: string; to?: string; deleted?: string }
 
 export default async function Submissions({ searchParams }: { searchParams: Promise<SP> }) {
   const u = await requireUser();
@@ -45,10 +45,11 @@ export default async function Submissions({ searchParams }: { searchParams: Prom
         actions={formId && exportable ? <>
           <a href={qs("xlsx")} className="btn-secondary"><Download className="h-4 w-4" /> Excel</a>
           <a href={qs("csv")} className="btn-secondary"><Download className="h-4 w-4" /> CSV</a></> : undefined} />
+      {sp.deleted && <div className="mb-4"><Alert kind="success">{sp.deleted} was deleted.</Alert></div>}
       <form className="card mb-4 grid gap-3 p-3 sm:grid-cols-2 lg:grid-cols-[1.4fr_1fr_1fr_1fr_1fr_auto]">
         <input name="q" defaultValue={q ?? ""} className="input" placeholder="Search ref no, name, answers…" aria-label="Search" />
         <select name="form" defaultValue={formId ?? ""} className="input" aria-label="Form"><option value="">All forms</option>{forms.map((f) => <option key={f.id} value={f.id}>{f.title}</option>)}</select>
-        <select name="status" defaultValue={status ?? ""} className="input" aria-label="Status"><option value="">Any status</option>{["pending", "approved", "rejected", "withdrawn"].map((s) => <option key={s} value={s} className="capitalize">{s}</option>)}</select>
+        <select name="status" defaultValue={status ?? ""} className="input" aria-label="Status"><option value="">Any status</option>{["pending", "approved", "rejected", "withdrawn"].map((s) => <option key={s} value={s} className="capitalize">{s === "withdrawn" ? "cancelled" : s}</option>)}</select>
         <input type="date" name="from" defaultValue={from ?? ""} className="input" aria-label="From date" />
         <input type="date" name="to" defaultValue={to ?? ""} className="input" aria-label="To date" />
         <button className="btn-primary">Filter</button>

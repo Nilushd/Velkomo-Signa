@@ -31,14 +31,11 @@ export function RequesterActions({ submissionId, token, uploadCode, title, schem
     <div className="card border-red-200 bg-red-50/40 p-4">
       <p className="font-semibold text-red-900">This request was rejected</p>
       {comment && <p className="mt-1 text-sm text-red-800">“{comment}”</p>}
-      <p className="mt-1 text-sm text-ink-soft">Edit your answers and resubmit — it starts again at level 1 with the same reference number. Or withdraw it.</p>
+      <p className="mt-1 text-sm text-ink-soft">Edit your answers and resubmit — it starts again at level 1 with the same reference number. Or cancel or delete it below.</p>
       {err && <p className="mt-2 text-sm text-red-700">{err}</p>}
       <div className="mt-3 flex flex-wrap gap-2">
         <button className="btn-primary" onClick={() => setEditing(true)}><Pencil className="h-4 w-4" /> Edit and resubmit</button>
-        <button className="btn-secondary" disabled={pending} onClick={() => { if (confirm("Withdraw this request?")) start(async () => {
-          const r = await withdrawRequest(submissionId, token);
-          if (!r.ok) setErr(r.error); else router.refresh();
-        }); }}><Undo2 className="h-4 w-4" /> Withdraw</button>
+
       </div>
     </div>
   );
