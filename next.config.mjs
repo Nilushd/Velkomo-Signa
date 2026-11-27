@@ -1,7 +1,9 @@
 
 /** @type {import("next").NextConfig} */
 const config = {
-  serverExternalPackages: ["postgres", "web-push", "nodemailer"],
+  serverExternalPackages: ["postgres", "web-push", "nodemailer", "pdf-lib", "@pdf-lib/fontkit"],
+  // the PDF route reads the embedded font from disk
+  outputFileTracingIncludes: { "/api/pdf": ["./assets/fonts/**"] },
   experimental: { serverActions: { bodySizeLimit: "12mb" } },
   async headers() {
     return [{ source: "/(.*)", headers: [

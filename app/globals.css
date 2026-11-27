@@ -38,6 +38,7 @@
   .no-print { display: none !important; }
   .print-sheet { box-shadow: none !important; border: 0 !important; margin: 0 !important; padding: 0 2px 0 0 !important; max-width: none !important; }
   .avoid-break { break-inside: avoid; }
+  .print-batch-item + .print-batch-item { break-before: page; }
   a { color: inherit !important; text-decoration: none !important; }
   * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
 }

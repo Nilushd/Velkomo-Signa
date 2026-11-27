@@ -32,7 +32,9 @@ export function summaryRows(schema: Field[], data: Record<string, unknown>, max 
 export function fmtDate(d: Date | string | null | undefined, withTime = true) {
   if (!d) return "";
   const x = typeof d === "string" ? new Date(d) : d;
+  // NEXT_PUBLIC_TIMEZONE (e.g. Asia/Colombo) keeps server-rendered pages and PDFs in the hotel's local time
+  const timeZone = process.env.NEXT_PUBLIC_TIMEZONE || undefined;
   return x.toLocaleString("en-GB", withTime
-    ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit" }
-    : { day: "2-digit", month: "short", year: "numeric" });
+    ? { day: "2-digit", month: "short", year: "numeric", hour: "2-digit", minute: "2-digit", timeZone }
+    : { day: "2-digit", month: "short", year: "numeric", timeZone });
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, Printer } from "lucide-react";
+import { ArrowLeft, Printer, Download } from "lucide-react";
 import { requireUser, asUser } from "@/lib/auth";
 import { loadDetail } from "@/lib/submission-view";
 import { Answers, Progress, SummaryCard, History, OldVersions } from "@/components/submission-view";
@@ -26,7 +26,10 @@ export default async function ApprovalDetail({ params }: { params: Promise<{ id:
     <div className="mx-auto max-w-3xl space-y-4">
       <div className="flex items-center justify-between">
         <Link href="/approvals" className="inline-flex items-center gap-1 text-sm text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" /> My Approvals</Link>
-        <Link href={`/print/${d.sub.id}`} className="btn-secondary"><Printer className="h-4 w-4" /> Print / PDF</Link>
+        <div className="flex gap-2">
+          <a href={`/api/pdf?ids=${d.sub.id}`} className="btn-secondary"><Download className="h-4 w-4" /> Download PDF</a>
+          <Link href={`/print/${d.sub.id}`} className="btn-secondary"><Printer className="h-4 w-4" /> Print</Link>
+        </div>
       </div>
       <SummaryCard d={d} />
       <section className="card p-4">

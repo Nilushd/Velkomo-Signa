@@ -1,7 +1,8 @@
 import Link from "next/link";
 import { requireUser, asUser } from "@/lib/auth";
 import { formAccess, canReview } from "@/lib/access";
-import { PageHeader, StatusBadge, Empty } from "@/components/ui";
+import { PageHeader, Empty } from "@/components/ui";
+import { SubmissionsTable } from "./table";
 import { fmtDate } from "@/lib/format";
 import { Download } from "lucide-react";
 
@@ -52,23 +53,12 @@ export default async function Submissions({ searchParams }: { searchParams: Prom
         <input type="date" name="to" defaultValue={to ?? ""} className="input" aria-label="To date" />
         <button className="btn-primary">Filter</button>
       </form>
-      {!formId && <p className="mb-3 text-xs text-ink-mute">Choose a form to export its submissions to Excel or CSV.</p>}
+      <p className="mb-3 text-xs text-ink-mute">Tick submissions to download them as PDF or print them.{!formId && " Choose a form to export its submissions to Excel or CSV."}</p>
       {rows.length === 0 ? <Empty title="No submissions match" /> :
-        <div className="card overflow-x-auto">
-          <table className="table">
-            <thead><tr><th>Ref no</th><th>Form</th><th>Date</th><th>Submitter</th><th>Status</th><th>Level</th></tr></thead>
-            <tbody>{rows.map((r) => (
-              <tr key={r.id} className="hover:bg-ink-wash/60">
-                <td><Link href={`/submissions/${r.id}`} className="font-mono font-medium text-brand-700 hover:underline">{r.ref_no}</Link>{r.version > 1 && <span className="ml-1 text-xs text-ink-mute">v{r.version}</span>}</td>
-                <td>{r.title}</td>
-                <td className="whitespace-nowrap text-ink-mute">{fmtDate(r.created_at)}</td>
-                <td>{r.submitter}</td>
-                <td><StatusBadge status={r.status} /></td>
-                <td className="text-ink-mute">{r.status === "pending" ? r.current_level : "—"}</td>
-              </tr>))}</tbody>
-          </table>
+        <>
+          <SubmissionsTable rows={rows.map((r) => ({ id: r.id, ref_no: r.ref_no, title: r.title, status: r.status, current_level: r.current_level, version: r.version, submitter: r.submitter, created: fmtDate(r.created_at) }))} />
           {rows.length === 500 && <p className="p-3 text-xs text-ink-mute">Showing the latest 500. Narrow the filters or export.</p>}
-        </div>}
+        </>}
     </>
   );
 }

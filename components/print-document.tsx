@@ -57,8 +57,8 @@ function AnswerValue({ f, v }: { f: Field; v: unknown }) {
 }
 
 /** A filled, approved (or pending) document with its approval record and verification QR. */
-export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, verifyPage, fingerprint, printedBy, backHref }:
-  { d: Detail; propertyName: string; propertyLogo: string | null; verifyUrl: string; verifyPage: string; fingerprint: string; printedBy: string; backHref: string }) {
+export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, verifyPage, fingerprint, printedBy, backHref, toolbar = true, pdfHref }:
+  { d: Detail; propertyName: string; propertyLogo: string | null; verifyUrl: string; verifyPage: string; fingerprint: string; printedBy: string; backHref: string; toolbar?: boolean; pdfHref?: string }) {
   const { sub, form } = d;
   const theme = form.theme;
   const qr = await qrSvg(verifyUrl);
@@ -67,8 +67,8 @@ export async function PrintDocument({ d, propertyName, propertyLogo, verifyUrl, 
   const waiting = d.approvals.filter((a) => a.version === sub.version && a.decision === "pending" && sub.status === "pending");
   const lastDecision = decisions.at(-1);
   return (
-    <div className="min-h-screen bg-ink-wash py-6 print:bg-white print:py-0" style={{ fontFamily: FONT_STACKS[theme.font ?? "sans"] }}>
-      <PrintToolbar backHref={backHref} />
+    <div className={toolbar ? "min-h-screen bg-ink-wash py-6 print:bg-white print:py-0" : "print-batch-item bg-ink-wash pb-6 print:bg-white print:pb-0"} style={{ fontFamily: FONT_STACKS[theme.font ?? "sans"] }}>
+      {toolbar && <PrintToolbar backHref={backHref} pdfHref={pdfHref} />}
       <article className="print-sheet mx-auto max-w-[210mm] bg-white p-[12mm] text-[12.5px] text-ink shadow-card">
         <Header theme={theme} title={form.title} propertyName={propertyName} propertyLogo={propertyLogo} right={
           <div className="flex shrink-0 items-start gap-3">

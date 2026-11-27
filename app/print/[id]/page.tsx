@@ -35,6 +35,7 @@ export default async function PrintPage({ params, searchParams }: { params: Prom
   return (
     <PrintDocument d={d} propertyName={p.name} propertyLogo={p.logo_file_id}
       verifyUrl={`${appUrl()}/v/${d.sub.verify_code}`} verifyPage={`${appUrl()}/verify`}
-      fingerprint={fingerprint(d.sub.ref_no, d.sub.version, d.sub.data)} printedBy={printedBy} backHref={back} />
+      fingerprint={fingerprint(d.sub.ref_no, d.sub.version, d.sub.data)} printedBy={printedBy} backHref={back}
+      pdfHref={`/api/pdf?ids=${d.sub.id}${s ? `&s=${encodeURIComponent(s)}` : ""}`} />
   );
 }
