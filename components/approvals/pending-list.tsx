@@ -63,10 +63,10 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
       </div>
 
       <ul className="space-y-2">{shown.map((r) => (
-        <li key={r.id} className={clsx("card flex items-start gap-3 p-4 transition", sel.has(r.id) ? "border-brand-400 bg-brand-50/40" : "hover:border-brand-300")}>
+        <li key={r.id} className={clsx("card flex flex-wrap items-start gap-x-3 gap-y-3 p-4 transition", sel.has(r.id) ? "border-brand-400 bg-brand-50/40" : "hover:border-brand-300")}>
           <input type="checkbox" className="mt-1.5 h-4 w-4" checked={sel.has(r.id)} onChange={() => toggle(r.id)} aria-label={`Select ${r.ref_no}`} />
           <Link href={`/approvals/${r.id}`} className="flex min-w-0 flex-1 flex-wrap items-start gap-3">
-            <div className="min-w-0 flex-1">
+            <div className="min-w-0 flex-1 basis-56">
               <p className="font-semibold">{r.title}{r.for_name && <span className="badge ml-2 bg-amber-50 align-middle text-amber-900 ring-1 ring-amber-200">for {r.for_name}</span>}</p>
               <p className="text-sm text-ink-mute"><span className="font-mono">{r.ref_no}</span> · {r.submitter} · Level {r.level}: {r.step_name}</p>
               {r.summary.length > 0 && (
@@ -74,9 +74,10 @@ export function PendingList({ rows }: { rows: PendingRow[] }) {
                   {r.summary.map(([k, v]) => <div key={k} className="min-w-0 truncate"><dt className="inline text-ink-mute">{k}: </dt><dd className="inline text-ink">{v}</dd></div>)}
                 </dl>)}
             </div>
-            <span className="text-xs text-ink-mute">{r.created}</span>
+            <span className="whitespace-nowrap text-xs text-ink-mute">{r.created}</span>
           </Link>
-          <div className="flex shrink-0 flex-col gap-1.5 sm:flex-row">
+          {/* phones: buttons on their own row under the request; wider screens: beside it */}
+          <div className="flex w-full gap-2 pl-7 sm:w-auto sm:shrink-0 sm:pl-0 [&>button]:flex-1 sm:[&>button]:flex-none">
             <button className="btn-sm btn bg-[#047857] text-white hover:bg-[#065F46]" disabled={pending} onClick={() => decideNow([r.id], "approved", "")} aria-label={`Approve ${r.ref_no}`}>
               <Check className="h-3.5 w-3.5" /> {busyIds.has(r.id) ? "…" : "Approve"}</button>
             <button className="btn-sm btn border border-red-200 bg-white text-red-700 hover:bg-red-50" disabled={pending} onClick={() => openDialog("rejected", [r.id])} aria-label={`Reject ${r.ref_no}`}>
