@@ -3,8 +3,28 @@ import { useState } from "react";
 import clsx from "clsx";
 import { headerLogo, LOGO_HEIGHT, type Field, type Theme, type FileRef } from "@/lib/types";
 import { fileRefs } from "@/lib/format";
-import { Paperclip, X } from "lucide-react";
+import { Paperclip, X, Camera } from "lucide-react";
 import { SignaturePad } from "./signature-pad";
+
+/**
+ * Phone photos are often 3–8 MB. Resize big JPEG/PNG/WebP photos to at most 2000 px (JPEG, good quality) before
+ * uploading: faster on mobile data, and they stay under the 10 MB limit. Other files are sent as they are.
+ */
+async function shrinkPhoto(file: File): Promise<File> {
+  if (!/^image\/(jpeg|png|webp)$/.test(file.type) || file.size < 1_500_000 || typeof createImageBitmap !== "function") return file;
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement("canvas");
+    c.width = Math.round(bmp.width * scale); c.height = Math.round(bmp.height * scale);
+    const ctx = c.getContext("2d")!;
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, c.width, c.height);
+    ctx.drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise<Blob | null>((r) => c.toBlob(r, "image/jpeg", 0.85));
+    if (!blob || blob.size >= file.size) return file;
+    return new File([blob], file.name.replace(/\.(png|webp|jpe?g)$/i, "") + ".jpg", { type: "image/jpeg" });
+  } catch { return file; }
+}
 
 export const FONT_STACKS: Record<string, string> = {
   sans: 'Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
@@ -58,8 +78,9 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
   const primary = theme.primary || "#2563EB";
   const set = (id: string, v: unknown) => { setData((d) => ({ ...d, [id]: v })); setErrors((e) => { const n = { ...e }; delete n[id]; return n; }); };
 
-  async function upload(f: Field, files: File[]) {
-    if (!uploadCode || files.length === 0) return;
+  async function upload(f: Field, picked: File[]) {
+    if (!uploadCode || picked.length === 0) return;
+    const files = await Promise.all(picked.map(shrinkPhoto));
     const max = f.multiple ? f.maxFiles || 5 : 1;
     const current = f.multiple ? fileRefs(data[f.id]) : [];
     if (current.length + files.length > max) { setErrors((e) => ({ ...e, [f.id]: `You can attach at most ${max} files.` })); return; }
@@ -171,14 +192,20 @@ export function FormRenderer({ title, description, schema, theme, initial, submi
                           <button type="button" onClick={() => set(f.id, f.multiple ? refs.filter((x) => x.fileId !== r.fileId) : "")} className="text-ink-mute hover:text-red-600" aria-label={`Remove ${r.name}`}><X className="h-4 w-4" /></button>
                         </li>))}</ul>}
                       {!full && (
-                        <div className="flex flex-wrap items-center gap-3">
+                        <div className="flex flex-wrap items-center gap-2">
+                          {/* phones: open the camera straight away */}
+                          <label className={clsx("btn-secondary cursor-pointer sm:hidden", (preview || uploading) && "pointer-events-none opacity-60")}>
+                            <Camera className="h-4 w-4" /> Take photo
+                            <input type="file" className="sr-only" disabled={preview} accept="image/*" capture="environment"
+                              onChange={(e) => { const list = Array.from(e.target.files ?? []); e.target.value = ""; upload(f, list); }} />
+                          </label>
                           <label className={clsx("btn-secondary cursor-pointer", (preview || uploading) && "pointer-events-none opacity-60")}>
                             <Paperclip className="h-4 w-4" />
                             {uploading === f.id ? "Uploading…" : f.multiple ? (refs.length ? "Add more files" : "Add files") : refs.length ? "Replace file" : "Choose file"}
                             <input type="file" className="sr-only" disabled={preview} multiple={!!f.multiple} accept=".pdf,.png,.jpg,.jpeg,.webp,.heic,.doc,.docx,.xls,.xlsx,.csv,.txt"
                               onChange={(e) => { const list = Array.from(e.target.files ?? []); e.target.value = ""; upload(f, list); }} />
                           </label>
-                          <span className="text-xs text-ink-mute">PDF, image, Word or Excel · max 10 MB each{f.multiple ? ` · up to ${max} files` : ""}</span>
+                          <span className="w-full text-xs text-ink-mute sm:w-auto">PDF, photo, Word or Excel · max 10 MB each{f.multiple ? ` · up to ${max} files` : ""}</span>
                         </div>)}
                     </div>);
                 })()}
