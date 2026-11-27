@@ -14,6 +14,9 @@ const DUMMY_HASH = bcrypt.hashSync("not-a-real-password", 10);
 export interface SessionUser {
   id: string;
   property_id: string;
+  /** the hotel the account belongs to (property_id is the hotel the session is working in) */
+  home_property_id: string;
+  home_property_code: string;
   username: string;
   name: string;
   email: string | null;
@@ -153,16 +156,51 @@ export async function logout() {
 export const getSession = cache(async (): Promise<SessionUser | null> => {
   const token = (await cookies()).get(SESSION_COOKIE)?.value;
   if (!token) return null;
+  // The session is "in" the user's home hotel, or — for cluster users — another hotel of the same group they were given access to.
+  // There, role and designer rights come from that hotel's membership (set by its own admin), not from the home account.
   const [u] = await rootSql()<SessionUser[]>`
-    select u.id, u.property_id, u.username, u.name, u.email, u.department, u.is_admin, u.is_super_admin,
-           u.can_build_forms, u.can_use_studio, u.can_use_ai, u.email_approvals, (u.totp_enabled_at is not null) as totp_enabled, u.must_change_password,
+    with s as (select user_id, active_property_id from sessions where token_hash = ${sha256(token)} and expires_at > now())
+    select u.id, coalesce(m.pid, u.property_id) as property_id, u.property_id as home_property_id, hp.property_code as home_property_code,
+           u.username, u.name, u.email, u.department, u.is_super_admin,
+           case when m.pid is null then u.is_admin else m.is_admin end as is_admin,
+           case when m.pid is null then u.can_build_forms else m.can_build_forms end as can_build_forms,
+           case when m.pid is null then u.can_use_studio else m.can_build_forms end as can_use_studio,
+           case when m.pid is null then u.can_use_ai else m.can_build_forms end as can_use_ai,
+           u.email_approvals, (u.totp_enabled_at is not null) as totp_enabled, u.must_change_password,
            p.property_code, p.name as property_name, p.logo_file_id as property_logo,
            to_char(p.subscription_ends, 'YYYY-MM-DD') as subscription_ends, (p.subscription_ends - signa_today(p.id))::int as subscription_days_left, p.time_zone
-    from sessions s join users u on u.id = s.user_id join properties p on p.id = u.property_id
-    where s.token_hash = ${sha256(token)} and s.expires_at > now() and u.active and p.active
-      and (p.subscription_ends is null or p.subscription_ends >= signa_today(p.id))`;
+    from s join users u on u.id = s.user_id join properties hp on hp.id = u.property_id
+    left join lateral (
+      select up.property_id as pid, up.is_admin, up.can_build_forms from user_properties up join properties tp on tp.id = up.property_id
+      where up.user_id = u.id and up.property_id = s.active_property_id and s.active_property_id <> u.property_id
+        and signa_same_group(u.property_id, up.property_id) and tp.active and (tp.subscription_ends is null or tp.subscription_ends >= signa_today(tp.id))) m on true
+    join properties p on p.id = coalesce(m.pid, u.property_id)
+    where u.active and hp.active and (hp.subscription_ends is null or hp.subscription_ends >= signa_today(hp.id))`;
   return u ?? null;
 });
+
+/** Hotels this user can work in: home + cluster hotels (same group, open), with their waiting approvals. */
+export async function accessibleHotels(u: SessionUser) {
+  return rootSql()<{ id: string; code: string; name: string; logo: string | null; home: boolean; pending: number }[]>`
+    select p.id, p.property_code as code, p.name, p.logo_file_id as logo, p.id = ${u.home_property_id} as home,
+      (select count(*)::int from approvals a join submissions sb on sb.id = a.submission_id
+        where a.property_id = p.id and a.approver_user_id = ${u.id} and a.decision = 'pending' and sb.status = 'pending' and sb.version = a.version and sb.current_level = a.level) as pending
+    from properties p
+    where p.active and (p.subscription_ends is null or p.subscription_ends >= signa_today(p.id))
+      and (p.id = ${u.home_property_id} or exists (select 1 from user_properties up where up.user_id = ${u.id} and up.property_id = p.id and signa_same_group(${u.home_property_id}, p.id)))
+    order by p.id = ${u.home_property_id} desc, p.name`;
+}
+
+/** Move this session into another hotel the user can access (or back home). */
+export async function switchHotel(propertyId: string) {
+  const u = await getSession();
+  if (!u) return false;
+  const ok = (await accessibleHotels(u)).some((h) => h.id === propertyId);
+  if (!ok) return false;
+  const token = (await cookies()).get(SESSION_COOKIE)?.value!;
+  await rootSql()`update sessions set active_property_id = ${propertyId === u.home_property_id ? null : propertyId} where token_hash = ${sha256(token)}`;
+  return true;
+}
 
 /** For pages: must be signed in (and not stuck on a temporary password). */
 export async function requireUser(opts: { allowMustChange?: boolean } = {}): Promise<SessionUser> {

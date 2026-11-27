@@ -1,7 +1,7 @@
 "use client";
 import { useActionState, useState, useTransition } from "react";
 import clsx from "clsx";
-import { setUserFormAccess, setUserAccessAllForms, setUserGroups, resetPassword, setRole } from "@/app/actions/users";
+import { setUserFormAccess, setUserAccessAllForms, setUserGroups, resetPassword, setRole, setUserHotels } from "@/app/actions/users";
 import { StatusBadge, Alert } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 import { ACCESS_LEVELS, type Level } from "@/components/access-levels";
@@ -105,5 +105,29 @@ export function ResetPasswordForm({ userId }: { userId: string }) {
       <input name="password" className="input font-mono" placeholder="New temporary password" required minLength={8} aria-label="New temporary password" />
       <SubmitButton className="btn-secondary">Reset password</SubmitButton>
     </form>
+  );
+}
+
+/** Home hotel admin: tick the other hotels of the group this person may work in. Saves on each change. */
+export function HotelAccess({ userId, hotels, given }: { userId: string; hotels: { id: string; code: string; name: string }[]; given: string[] }) {
+  const [sel, setSel] = useState<string[]>(given);
+  const [msg, setMsg] = useState<string | null>(null);
+  const [pending, start] = useTransition();
+  const toggle = (id: string, on: boolean) => {
+    const next = on ? [...sel, id] : sel.filter((x) => x !== id);
+    setSel(next);
+    start(async () => { const r = await setUserHotels(userId, next); setMsg(r && "error" in r && r.error ? r.error : "Saved."); });
+  };
+  return (
+    <div className="space-y-2">
+      <div className="grid gap-2 sm:grid-cols-2">
+        {hotels.map((h) => (
+          <label key={h.id} className="flex items-center gap-3 rounded-lg border border-ink-line p-3 text-sm">
+            <input type="checkbox" checked={sel.includes(h.id)} disabled={pending} onChange={(e) => toggle(h.id, e.target.checked)} aria-label={`Access to ${h.name}`} />
+            <span><b>{h.name}</b> <span className="font-mono text-xs text-ink-mute">{h.code}</span></span>
+          </label>))}
+      </div>
+      {msg && <p className="text-xs text-ink-mute" aria-live="polite">{pending ? "Saving…" : msg}</p>}
+    </div>
   );
 }

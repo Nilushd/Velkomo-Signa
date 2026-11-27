@@ -4,9 +4,11 @@ import { ArrowLeft } from "lucide-react";
 import { requireAdmin, asUser } from "@/lib/auth";
 import { PageHeader, Alert } from "@/components/ui";
 import { UserForm } from "@/components/user-form";
-import { updateUser, setActive, unlockUser } from "@/app/actions/users";
+import { updateUser, setActive, unlockUser, removeFromHotel } from "@/app/actions/users";
+import { rootSql } from "@/lib/db";
+import { groupOf, userHotels, propertyCodes } from "@/lib/groups";
 import { adminResetTwoFactor } from "@/app/actions/twofa";
-import { UserAccessTable, UserGroups, ResetPasswordForm, RoleSwitches } from "./client";
+import { UserAccessTable, UserGroups, ResetPasswordForm, RoleSwitches, HotelAccess } from "./client";
 import { AccessLegend } from "@/components/access-levels";
 import { DelegationPanel } from "@/components/delegation-panel";
 import { loadDelegations, approvableForms } from "@/lib/delegation";
@@ -17,8 +19,8 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   const { id } = await params;
   const admin = await requireAdmin();
   const data = await asUser(admin, async (tx) => {
-    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; active: boolean; totp_on: boolean; locked_until: Date | null; must_change_password: boolean }[]>`
-      select id, username, name, email, department, is_admin, can_build_forms, active, (totp_enabled_at is not null) as totp_on, locked_until, must_change_password from users where id = ${id}`;
+    const [u] = await tx<{ id: string; username: string; name: string; email: string | null; department: string | null; is_admin: boolean; can_build_forms: boolean; active: boolean; totp_on: boolean; locked_until: Date | null; must_change_password: boolean; property_id: string }[]>`
+      select id, username, name, email, department, is_admin, can_build_forms, active, (totp_enabled_at is not null) as totp_on, locked_until, must_change_password, property_id from users where id = ${id}`;
     if (!u) return null;
     const forms = await tx<{ id: string; title: string; status: string; visibility: string; access: string | null; via_group: string | null }[]>`
       select f.id, f.title, f.status, f.visibility,
@@ -33,6 +35,34 @@ export default async function UserPage({ params, searchParams }: { params: Promi
   });
   if (!data) notFound();
   const { u } = data;
+  const cluster = u.property_id !== admin.property_id; // a user from another hotel of the group
+  let role = { admin: u.is_admin, designer: u.can_build_forms };
+  let home: { code: string; name: string } | undefined;
+  if (cluster) {
+    const [m] = await rootSql()<{ is_admin: boolean; can_build_forms: boolean }[]>`select is_admin, can_build_forms from user_properties where user_id = ${u.id} and property_id = ${admin.property_id}`;
+    role = { admin: !!m?.is_admin, designer: !!m?.can_build_forms };
+    home = (await propertyCodes([u.property_id])).get(u.property_id);
+  }
+  const group = cluster ? null : await groupOf(admin.property_id);
+  const given = group ? await userHotels(u.id) : [];
+  if (cluster) return (
+    <div className="space-y-6">
+      <Link href="/users" className="inline-flex items-center gap-1 text-sm text-ink-mute hover:text-ink"><ArrowLeft className="h-4 w-4" /> Users</Link>
+      <PageHeader title={u.name} subtitle={`@${u.username} · cluster user from ${home?.name ?? "another hotel"} (${home?.code ?? ""})`}
+        actions={<form action={removeFromHotel.bind(null, u.id)}><button className="btn-secondary">Remove from {admin.property_name}</button></form>} />
+      <Alert kind="info">{u.name}&apos;s account belongs to <b>{home?.name}</b> — their details, password and two-factor are managed there. Here you decide what they can do in <b>{admin.property_name}</b>.</Alert>
+      <section className="card space-y-5 p-5" id="permissions">
+        <div><h2 className="font-semibold">Permissions in {admin.property_name}</h2><p className="text-sm text-ink-mute">Changes save as soon as you make them.</p></div>
+        <RoleSwitches userId={u.id} isAdmin={role.admin} designer={role.designer} self={false} />
+        <div className="space-y-3">
+          <h3 className="text-sm font-semibold text-ink-soft">Form access — choose for each form</h3>
+          <AccessLegend />
+          <UserAccessTable userId={u.id} forms={data.forms} />
+        </div>
+      </section>
+      <section className="card p-5"><h2 className="mb-3 font-semibold">Groups</h2><UserGroups userId={u.id} groups={data.groups} /></section>
+    </div>
+  );
   const locked = u.locked_until && u.locked_until > new Date();
   return (
     <div className="space-y-6">
@@ -52,6 +82,12 @@ export default async function UserPage({ params, searchParams }: { params: Promi
           <UserAccessTable userId={u.id} forms={data.forms} />
         </div>
       </section>
+      {group && group.hotels.length > 0 && (
+        <section className="card p-5" id="hotels">
+          <h2 className="font-semibold">Other hotels in {group.name}</h2>
+          <p className="mb-3 mt-1 text-sm text-ink-mute">{u.name} can switch to the hotels you tick and work there as a regular user. Each hotel&apos;s admin decides their role and form access there.</p>
+          <HotelAccess userId={u.id} hotels={group.hotels} given={given} />
+        </section>)}
       <section className="card p-5">
         <h2 className="font-semibold">Out of office</h2>
         <p className="mb-4 mt-1 text-sm text-ink-mute">Forward {u.name}&apos;s approvals to a colleague while they&apos;re on leave.</p>

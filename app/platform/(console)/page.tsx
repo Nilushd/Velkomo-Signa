@@ -13,7 +13,7 @@ import { timeZoneOptions, localTime } from "@/lib/timezones";
 
 export const metadata = { title: "Platform" };
 
-type Row = { id: string; property_code: string; name: string; notes: string | null; active: boolean; form_type_limit: number | null; time_zone: string; ends: string | null; days_left: number | null; created_at: Date;
+type Row = { id: string; property_code: string; name: string; notes: string | null; active: boolean; group_name: string | null; cluster_users: number; form_type_limit: number | null; time_zone: string; ends: string | null; days_left: number | null; created_at: Date;
   admins: number; users: number; forms: number; active_forms: number; subs: number; last_seen: Date | null };
 
 const FILTERS: { v: string; label: string; match: (s: SubState) => boolean }[] = [
@@ -29,7 +29,8 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   const { show = "all", q = "", deleted, edit } = await searchParams;
   const sql = rootSql();
   const all = await sql<Row[]>`
-    select p.id, p.property_code, p.name, p.notes, p.active, p.form_type_limit, to_char(p.subscription_ends, 'YYYY-MM-DD') as ends, (p.subscription_ends - signa_today(p.id))::int as days_left, p.time_zone, p.created_at,
+    select p.id, p.property_code, p.name, p.notes, p.active, (select name from hotel_groups g where g.id = p.group_id) as group_name,
+      (select count(*)::int from user_properties up join users x on x.id = up.user_id where up.property_id = p.id and signa_same_group(x.property_id, p.id)) as cluster_users, p.form_type_limit, to_char(p.subscription_ends, 'YYYY-MM-DD') as ends, (p.subscription_ends - signa_today(p.id))::int as days_left, p.time_zone, p.created_at,
       (select count(*)::int from users where property_id = p.id and is_admin and active) as admins,
       (select count(*)::int from users where property_id = p.id and active) as users,
       (select count(*)::int from forms where property_id = p.id) as forms,
@@ -50,7 +51,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
   const rows: HotelRow[] = await Promise.all(shown.map(async (p) => {
     const st = await storageUsage(p.id);
     return { id: p.id, property_code: p.property_code, name: p.name, notes: p.notes, active: p.active, ends: p.ends, endsLabel: p.ends ? fmtDay(p.ends) : null,
-      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, activeForms: p.active_forms, limit: p.form_type_limit, tz: p.time_zone, tzLabel: `${p.time_zone.split("/").pop()!.replace(/_/g, " ")} ${localTime(p.time_zone)}`, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
+      days_left: p.days_left, state: p.state, users: p.users, forms: p.forms, activeForms: p.active_forms, group: p.group_name, clusterUsers: p.cluster_users, limit: p.form_type_limit, tz: p.time_zone, tzLabel: `${p.time_zone.split("/").pop()!.replace(/_/g, " ")} ${localTime(p.time_zone)}`, subs: p.subs, last_seen: p.last_seen ? fmtDate(p.last_seen, false) : null,
       storage: mb(st.fileBytes + st.dataBytes),
       admins: admins.filter((a) => a.property_id === p.id).map(({ property_id: _p, seen, ...a }) => ({ ...a, last_seen: seen ? fmtDate(seen) : null })) };
   }));
@@ -84,7 +85,7 @@ export default async function PlatformPage({ searchParams }: { searchParams: Pro
           <Search className="pointer-events-none absolute left-3 top-2.5 h-4 w-4 text-ink-mute" />
           <input name="q" defaultValue={q} className="input pl-9" placeholder="Search hotel or code" /></form>
       </div>
-      <HotelTable rows={rows} initialEdit={edit} zones={timeZoneOptions()} />
+      <HotelTable rows={rows} initialEdit={edit} zones={timeZoneOptions()} groups={[...new Set(all.map((p) => p.group_name).filter((g): g is string => !!g))].sort()} />
       <section className="card p-5">
         <h2 className="mb-3 font-semibold">Recent platform activity</h2>
         {log.length === 0 ? <p className="text-sm text-ink-mute">Nothing yet.</p> : (

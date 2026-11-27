@@ -3,7 +3,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import clsx from "clsx";
-import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Bell, Menu, X, LogOut, Wand2 } from "lucide-react";
+import { LayoutDashboard, FileStack, ClipboardList, Send, Inbox, Table2, Users, Settings, Bell, Menu, X, LogOut, Wand2, ChevronsUpDown, Check, Home } from "lucide-react";
+import { switchHotelAction } from "@/app/actions/hotels";
 import { logoutAction } from "@/app/actions/auth";
 import { Logo } from "./ui";
 
@@ -11,11 +12,15 @@ interface Props {
   user: { name: string; username: string; isAdmin: boolean; canBuild: boolean; canStudio: boolean; reviewer: boolean };
   property: { name: string; code: string; logo: string | null };
   counts: { approvals: number; unread: number };
+  hotels?: { id: string; code: string; name: string; home: boolean; pending: number; current: boolean }[];
 }
 
-export function Sidebar({ user, property, counts }: Props) {
+export function Sidebar({ user, property, counts, hotels = [] }: Props) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
+  const [picker, setPicker] = useState(false);
+  const cluster = hotels.length > 1;
+  const elsewhere = hotels.filter((h) => !h.current).reduce((t, h) => t + h.pending, 0);
   const items = [
     { href: "/", label: "Dashboard", icon: LayoutDashboard, show: true },
     { href: "/forms", label: "Forms", icon: FileStack, show: user.canBuild },
@@ -32,15 +37,31 @@ export function Sidebar({ user, property, counts }: Props) {
 
   const nav = (
     <>
-      <div className="flex items-center gap-3 rounded-xl bg-white/5 p-3 ring-1 ring-white/10">
+      <div className="relative">
+      <button type="button" disabled={!cluster} onClick={() => setPicker(!picker)} aria-expanded={picker} aria-label={cluster ? "Switch hotel" : undefined}
+        className={clsx("flex w-full items-center gap-3 rounded-xl bg-white/5 p-3 text-left ring-1 ring-white/10", cluster && "hover:bg-white/10")}>
         {property.logo
           // eslint-disable-next-line @next/next/no-img-element
           ? <img src={`/api/files/${property.logo}`} alt="" className="h-9 w-9 rounded-lg bg-white object-contain p-0.5" />
           : <div className="grid h-9 w-9 place-items-center rounded-lg bg-brand-500 text-sm font-bold text-white">{property.name.slice(0, 1)}</div>}
         <div className="min-w-0">
           <p className="truncate text-sm font-semibold text-white">{property.name}</p>
-          <p className="text-xs text-brand-200">{property.code}</p>
+          <p className="text-xs text-brand-200">{property.code}{cluster ? ` · ${hotels.length} hotels` : ""}</p>
         </div>
+        {cluster && <span className="ml-auto flex items-center gap-1">{elsewhere > 0 && <span className="rounded-full bg-tick px-1.5 text-xs font-semibold text-brand-900" title="Waiting for you in other hotels">{elsewhere}</span>}<ChevronsUpDown className="h-4 w-4 text-brand-200" /></span>}
+      </button>
+      {picker && cluster && (
+        <div className="absolute inset-x-0 top-full z-50 mt-1 overflow-hidden rounded-xl bg-white text-ink shadow-xl ring-1 ring-ink-line" role="menu">
+          <p className="px-3 pb-1 pt-2 text-xs font-semibold uppercase tracking-wide text-ink-mute">Switch hotel</p>
+          {hotels.map((h) => (
+            <form key={h.id} action={switchHotelAction.bind(null, h.id)}>
+              <button role="menuitem" className={clsx("flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-ink-wash", h.current && "bg-brand-50")}>
+                {h.current ? <Check className="h-4 w-4 text-brand-600" /> : h.home ? <Home className="h-4 w-4 text-ink-mute" /> : <span className="w-4" />}
+                <span className="min-w-0 flex-1"><span className="block truncate font-medium">{h.name}</span><span className="text-xs text-ink-mute">{h.code}{h.home ? " · your hotel" : ""}</span></span>
+                {h.pending > 0 && <span className="rounded-full bg-brand-600 px-1.5 text-xs font-semibold text-white" title="Waiting for your approval">{h.pending}</span>}
+              </button>
+            </form>))}
+        </div>)}
       </div>
       <nav className="mt-5 flex-1 space-y-0.5">
         {items.map((i) => (

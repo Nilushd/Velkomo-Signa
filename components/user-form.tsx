@@ -9,7 +9,8 @@ interface U { username: string; name: string; email: string | null; department: 
 interface F { id: string; title: string; status: string }
 
 /** User details. On "Add user" (no `user`) it also has the permissions: Admin, Form designer, and access per form. */
-export function UserForm({ action, user, withPassword, forms }: { action: (s: FormState, fd: FormData) => Promise<FormState>; user?: U; withPassword?: boolean; forms?: F[] }) {
+export function UserForm({ action, user, withPassword, forms, group }: { action: (s: FormState, fd: FormData) => Promise<FormState>; user?: U; withPassword?: boolean; forms?: F[];
+  group?: { name: string; hotels: { id: string; code: string; name: string }[] } | null }) {
   const [state, run] = useActionState(action, undefined);
   const [levels, setLevels] = useState<Record<string, Level>>({});
   const [all, setAll] = useState<Level | "">("");
@@ -56,6 +57,16 @@ export function UserForm({ action, user, withPassword, forms }: { action: (s: Fo
                       {ACCESS_LEVELS.map((l) => <option key={l.v} value={l.v}>{l.label}</option>)}</select>
                   </div>))}
               </div>)}
+          </div>
+        </section>)}
+      {group && group.hotels.length > 0 && (
+        <section className="space-y-3 rounded-xl border border-ink-line p-4">
+          <div><h2 className="font-semibold">Other hotels in {group.name}</h2>
+            <p className="text-sm text-ink-mute">Tick the hotels this person may also work in. They switch hotels from the menu; each hotel&apos;s admin decides their role and form access there.</p></div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            {group.hotels.map((h) => (
+              <label key={h.id} className="flex items-center gap-3 rounded-lg border border-ink-line p-3 text-sm">
+                <input type="checkbox" name={`hotel_${h.id}`} /> <span><b>{h.name}</b> <span className="font-mono text-xs text-ink-mute">{h.code}</span></span></label>))}
           </div>
         </section>)}
       <SubmitButton>{user ? "Save details" : "Create user"}</SubmitButton>

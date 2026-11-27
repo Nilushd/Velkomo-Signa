@@ -1,4 +1,4 @@
-import { requireUser, asUser } from "@/lib/auth";
+import { requireUser, asUser, accessibleHotels } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
 import { fmtDay } from "@/lib/subscription";
 
@@ -18,6 +18,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         user={{ name: u.name, username: u.username, isAdmin: u.is_admin, canBuild: u.can_build_forms || u.is_admin, canStudio: u.is_admin || u.can_build_forms, reviewer: counts.reviewer }}
         property={{ name: u.property_name, code: u.property_code, logo: u.property_logo }}
         counts={{ approvals: counts.approvals, unread: counts.unread }}
+        hotels={(await accessibleHotels(u)).map((h) => ({ id: h.id, code: h.code, name: h.name, home: h.home, pending: h.pending, current: h.id === u.property_id }))}
       />
       <main className="min-w-0 flex-1 px-4 pb-16 pt-6 sm:px-6 lg:px-10 lg:pt-8">
         <div className="mx-auto max-w-6xl">

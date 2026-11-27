@@ -212,3 +212,40 @@ export async function saveContract(propertyId: string, _: FormState, fd: FormDat
   revalidatePath("/platform/billing");
   return { ok: "Contract saved." };
 }
+
+/* ---------- hotel groups (clusters) — only Super Admins ---------- */
+
+/** Put the ticked hotels into a group (an existing one by name, or a new one). */
+export async function groupHotels(ids: string[], name: string) {
+  const u = await requireSuper();
+  const n = name.trim().slice(0, 80);
+  if (!n) return { error: "Give the group a name." };
+  const pids = z.array(z.string().uuid()).min(1, "Tick at least one hotel.").safeParse(ids);
+  if (!pids.success) return { error: pids.error.issues[0].message };
+  const sql = rootSql();
+  const [g] = await sql<{ id: string }[]>`insert into hotel_groups (name) values (${n}) on conflict ((lower(name))) do update set name = hotel_groups.name returning id`;
+  const moved = await sql<{ property_code: string; name: string }[]>`update properties set group_id = ${g.id} where id = any(${pids.data}::uuid[]) returning property_code, name`;
+  await cleanupGroups();
+  for (const p of moved) await log(u, p, "Grouped", n);
+  revalidatePath("/platform");
+  return { ok: true as const };
+}
+
+/** Take the ticked hotels out of their group. Cluster access between them stops at once. */
+export async function ungroupHotels(ids: string[]) {
+  const u = await requireSuper();
+  const pids = z.array(z.string().uuid()).min(1).parse(ids);
+  const sql = rootSql();
+  const moved = await sql<{ property_code: string; name: string; g: string | null }[]>`
+    update properties p set group_id = null from hotel_groups g where g.id = p.group_id and p.id = any(${pids}::uuid[]) returning p.property_code, p.name, g.name as g`;
+  // anyone working in a hotel they no longer share a group with goes back home
+  await sql`update sessions s set active_property_id = null from users u where u.id = s.user_id and s.active_property_id is not null and not signa_same_group(u.property_id, s.active_property_id)`;
+  await cleanupGroups();
+  for (const p of moved) await log(u, p, "Ungrouped", p.g);
+  revalidatePath("/platform");
+  return { ok: true as const, count: moved.length };
+}
+
+async function cleanupGroups() {
+  await rootSql()`delete from hotel_groups g where not exists (select 1 from properties p where p.group_id = g.id)`;
+}

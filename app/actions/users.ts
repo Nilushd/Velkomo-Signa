@@ -41,6 +41,8 @@ export async function createUser(_: FormState, fd: FormData): Promise<FormState>
     if (String(e).includes("users_username_uq")) return { error: "That username is already used in this property." };
     throw e;
   }
+  const hotels = [...fd.keys()].filter((k) => k.startsWith("hotel_")).map((k) => k.slice(6));
+  if (hotels.length) await setUserHotels(id, hotels);
   redirect(`/users/${id}?created=1`);
 }
 
@@ -67,9 +69,17 @@ export async function updateUser(userId: string, _: FormState, fd: FormData): Pr
 export async function setRole(userId: string, role: "admin" | "designer", on: boolean) {
   const admin = await requireAdmin();
   if (role === "admin" && userId === admin.id && !on) return { error: "You can't remove your own admin rights." };
-  await asUser(admin, (tx) => role === "admin"
-    ? tx`update users set is_admin = ${on} where id = ${userId}`
-    : tx`update users set can_build_forms = ${on}, can_use_studio = ${on}, can_use_ai = ${on} where id = ${userId}`);
+  const [t] = await rootSql()<{ property_id: string }[]>`select property_id from users where id = ${userId}`;
+  if (t && t.property_id !== admin.property_id) {
+    // a cluster user from another hotel: their role here is this hotel's decision
+    await asUser(admin, (tx) => role === "admin"
+      ? tx`update user_properties set is_admin = ${on} where user_id = ${userId} and property_id = ${admin.property_id}`
+      : tx`update user_properties set can_build_forms = ${on} where user_id = ${userId} and property_id = ${admin.property_id}`);
+  } else {
+    await asUser(admin, (tx) => role === "admin"
+      ? tx`update users set is_admin = ${on} where id = ${userId}`
+      : tx`update users set can_build_forms = ${on}, can_use_studio = ${on}, can_use_ai = ${on} where id = ${userId}`);
+  }
   revalidatePath(`/users/${userId}`);
   revalidatePath("/users");
   return { ok: true };
@@ -173,4 +183,39 @@ export async function deleteGroup(groupId: string) {
   const admin = await requireAdmin();
   await asUser(admin, (tx) => tx`delete from groups where id = ${groupId}`);
   revalidatePath("/users/groups");
+}
+
+/* ---------- cluster access (hotel groups) ---------- */
+
+/** Home hotel admin: which other hotels of the group this user can work in (as a regular user there). */
+export async function setUserHotels(userId: string, propertyIds: string[]) {
+  const admin = await requireAdmin();
+  const { groupOf } = await import("@/lib/groups");
+  const g = await groupOf(admin.property_id);
+  const allowed = new Set((g?.hotels ?? []).map((h) => h.id));
+  const ids = z.array(z.string().uuid()).parse(propertyIds).filter((id) => allowed.has(id));
+  const [u] = await rootSql()<{ property_id: string }[]>`select property_id from users where id = ${userId}`;
+  if (!u || u.property_id !== admin.property_id) return { error: "Only the user's own hotel can change this." };
+  await rootSql().begin(async (tx) => {
+    await tx`delete from user_properties where user_id = ${userId} and not (property_id = any(${ids}::uuid[]))`;
+    for (const pid of ids) await tx`insert into user_properties (user_id, property_id, granted_by) values (${userId}, ${pid}, ${admin.id}) on conflict do nothing`;
+  });
+  await rootSql()`update sessions set active_property_id = null where user_id = ${userId} and active_property_id is not null and not (active_property_id = any(${ids}::uuid[]))`;
+  revalidatePath(`/users/${userId}`);
+  return { ok: true as const };
+}
+
+/** Member hotel admin: take a cluster user's access to this hotel away. */
+export async function removeFromHotel(userId: string) {
+  const admin = await requireAdmin();
+  await asUser(admin, async (tx) => {
+    await tx`delete from form_access where user_id = ${userId}`;
+    await tx`delete from group_members where user_id = ${userId}`;
+    await tx`delete from user_properties where user_id = ${userId} and property_id = ${admin.property_id}`;
+    const forms = await tx<{ id: string }[]>`select id from forms`;
+    for (const f of forms) await pruneApprovers(tx, f.id);
+  });
+  await rootSql()`update sessions set active_property_id = null where user_id = ${userId} and active_property_id = ${admin.property_id}`;
+  revalidatePath("/users");
+  redirect("/users?removed=1");
 }
